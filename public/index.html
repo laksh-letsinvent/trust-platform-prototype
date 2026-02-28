@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trust Platform – Decision Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --monzo-navy: #091723;
+      --monzo-navy-light: #0f2435;
+      --monzo-surface: #142a42;
+      --monzo-border: #1e3a52;
+      --monzo-coral: #FF4B44;
+      --monzo-coral-dim: rgba(255,75,68,0.18);
+      --monzo-teal: #007A8B;
+      --monzo-teal-dim: rgba(0,122,139,0.15);
+      --monzo-green: #4BB78F;
+      --monzo-green-bg: rgba(75,183,143,0.12);
+      --monzo-orange: #F1BD76;
+      --monzo-orange-bg: rgba(241,189,118,0.12);
+      --monzo-red: #FE4B60;
+      --monzo-red-bg: rgba(254,75,96,0.12);
+      --monzo-purple: #9B7DDC;
+      --monzo-purple-bg: rgba(155,125,220,0.12);
+      --text: #e8eef4;
+      --text-muted: #8fa3b8;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; font-family:'DM Sans',system-ui,sans-serif; background:var(--monzo-navy); color:var(--text); line-height:1.5; padding:1rem; }
+    .container { max-width:1280px; margin:0 auto; }
+
+    /* ── Header ── */
+    header { margin-bottom:0; padding-bottom:1rem; border-bottom:1px solid var(--monzo-border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+    .header-left h1 { font-size:1.5rem; font-weight:700; margin:0 0 .15rem; letter-spacing:-.02em; }
+    .header-left .subtitle { color:var(--text-muted); font-size:.85rem; margin:0; }
+    .header-badges { display:flex; gap:.5rem; flex-wrap:wrap; }
+    .badge { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .65rem; border-radius:20px; font-size:.75rem; font-weight:600; }
+    .badge-green { background:var(--monzo-green-bg); color:var(--monzo-green); }
+    .badge-orange { background:var(--monzo-orange-bg); color:var(--monzo-orange); }
+    .badge-muted { background:rgba(255,255,255,.06); color:var(--text-muted); }
+    .badge-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+    /* ── Tabs ── */
+    .tab-nav { display:flex; gap:0; border-bottom:1px solid var(--monzo-border); margin-bottom:1.5rem; margin-top:1.25rem; }
+    .tab-btn { padding:.75rem 1.5rem; border:none; background:none; color:var(--text-muted); cursor:pointer; font-family:inherit; font-size:.9rem; font-weight:500; border-bottom:2px solid transparent; transition:all .2s; white-space:nowrap; }
+    .tab-btn:hover { color:var(--text); }
+    .tab-btn.active { color:var(--monzo-coral); border-bottom-color:var(--monzo-coral); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* ── Cards ── */
+    .card { background:var(--monzo-navy-light); border:1px solid var(--monzo-border); border-radius:var(--radius); padding:1.25rem; }
+    .card-title { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin:0 0 1rem; }
+    .card-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .card-title-row .card-title { margin-bottom:0; }
+
+    /* ── Layout helpers ── */
+    .layout { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; align-items:start; }
+    .layout-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; }
+    .col { display:flex; flex-direction:column; gap:1rem; }
+    @media (max-width:900px) { .layout,.layout-3 { grid-template-columns:1fr; } }
+
+    /* ── Form elements ── */
+    label { display:block; font-size:.8rem; font-weight:600; color:var(--text-muted); margin-bottom:.35rem; }
+    select, input[type="text"], input[type="number"] {
+      width:100%; padding:.55rem .75rem; background:var(--monzo-surface); border:1px solid var(--monzo-border);
+      border-radius:var(--radius-sm); color:var(--text); font-family:inherit; font-size:.875rem;
+      appearance:none; outline:none; transition:border-color .2s;
+    }
+    select:focus, input:focus { border-color:var(--monzo-coral); }
+    select option { background:var(--monzo-surface); }
+    .form-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; }
+    .form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+    @media (max-width:700px) { .form-row,.form-row-2 { grid-template-columns:1fr; } }
+
+    /* ── Buttons ── */
+    .btn { padding:.6rem 1.25rem; border:none; border-radius:var(--radius-sm); font-family:inherit; font-size:.875rem; font-weight:600; cursor:pointer; transition:all .2s; }
+    .btn-primary { background:var(--monzo-coral); color:#fff; }
+    .btn-primary:hover { background:#e03e38; }
+    .btn-secondary { background:var(--monzo-surface); color:var(--text); border:1px solid var(--monzo-border); }
+    .btn-secondary:hover { border-color:var(--monzo-coral); }
+    .btn-sm { padding:.4rem .9rem; font-size:.8rem; }
+    .btn-full { width:100%; margin-top:.75rem; }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* ── Decision outcome badge ── */
+    @keyframes badge-pop { 0% { transform:scale(.85); opacity:0; } 60% { transform:scale(1.05); } 100% { transform:scale(1); opacity:1; } }
+    .outcome-badge {
+      display:inline-flex; align-items:center; gap:.5rem; padding:.5rem 1rem;
+      border-radius:24px; font-size:1rem; font-weight:700; animation:badge-pop .25s ease forwards;
+    }
+    .outcome-badge.ALLOW { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
+    .outcome-badge.STEP_UP { background:var(--monzo-orange-bg); color:var(--monzo-orange); border:1px solid rgba(241,189,118,.3); }
+    .outcome-badge.DENY { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
+    .outcome-badge.MANUAL_REVIEW { background:var(--monzo-purple-bg); color:var(--monzo-purple); border:1px solid rgba(155,125,220,.3); }
+
+    /* ── Signal pills ── */
+    .signal-pills { display:flex; gap:.5rem; flex-wrap:wrap; margin:.75rem 0; }
+    .pill { padding:.25rem .65rem; border-radius:20px; font-size:.75rem; font-weight:600; background:rgba(255,255,255,.06); color:var(--text-muted); border:1px solid var(--monzo-border); }
+    .pill.risk-HIGH { background:var(--monzo-red-bg); color:var(--monzo-red); }
+    .pill.risk-MEDIUM { background:var(--monzo-orange-bg); color:var(--monzo-orange); }
+    .pill.risk-LOW { background:var(--monzo-green-bg); color:var(--monzo-green); }
+    .pill.trust-low { background:var(--monzo-red-bg); color:var(--monzo-red); }
+    .pill.trust-med { background:var(--monzo-orange-bg); color:var(--monzo-orange); }
+    .pill.trust-high { background:var(--monzo-green-bg); color:var(--monzo-green); }
+
+    /* ── Empty & loading states ── */
+    @keyframes pulse { 0%,100% { opacity:.35; } 50% { opacity:.7; } }
+    .skeleton { background:rgba(255,255,255,.05); border-radius:6px; animation:pulse 1.4s ease infinite; }
+    .empty-state { text-align:center; padding:2.5rem 1rem; }
+    .empty-icon { font-size:2rem; margin-bottom:.75rem; opacity:.4; }
+    .empty-title { font-size:1rem; font-weight:600; margin:.25rem 0; }
+    .empty-sub { font-size:.85rem; color:var(--text-muted); margin:0; }
+
+    /* ── Trace / transparency panel ── */
+    .trace-panel { background:var(--monzo-surface); border:1px solid var(--monzo-border); border-radius:var(--radius); position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow-y:auto; }
+    .trace-header { display:flex; align-items:center; justify-content:space-between; padding:.9rem 1.1rem; border-bottom:1px solid var(--monzo-border); position:sticky; top:0; background:var(--monzo-surface); z-index:1; }
+    .trace-header h3 { margin:0; font-size:.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); }
+    .trace-toggle { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; padding:.2rem .4rem; transition:transform .2s; }
+    .trace-toggle.collapsed { transform:rotate(-90deg); }
+    .trace-body { padding:.75rem; }
+    .trace-section { margin-bottom:.5rem; border:1px solid var(--monzo-border); border-radius:var(--radius-sm); overflow:hidden; }
+    .trace-section-header { display:flex; align-items:center; justify-content:space-between; padding:.55rem .8rem; background:rgba(255,255,255,.03); cursor:pointer; user-select:none; }
+    .trace-section-title { font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); }
+    .trace-section-body { padding:.75rem .8rem; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-muted); line-height:1.6; overflow-x:auto; max-height:300px; overflow-y:auto; }
+    .trace-section-body.collapsed { display:none; }
+    .rule-row { padding:.3rem .5rem; border-radius:4px; margin-bottom:.2rem; display:flex; align-items:flex-start; gap:.5rem; font-size:.7rem; }
+    .rule-row.matched { background:var(--monzo-green-bg); color:var(--monzo-green); }
+    .rule-row.unmatched { background:rgba(255,255,255,.02); color:var(--text-muted); }
+    .rule-row.skipped { background:rgba(255,255,255,.02); color:rgba(143,163,184,.4); }
+    .rule-dot { width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; margin-top:3px; }
+    .rule-id { font-weight:600; }
+    .rule-detail { font-size:.65rem; opacity:.7; margin-top:.1rem; }
+
+    /* ── Outcome section ── */
+    .outcome-section { margin-top:.75rem; }
+    .outcome-row { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .outcome-meta { margin-top:.5rem; display:flex; flex-direction:column; gap:.3rem; }
+    .outcome-meta-row { display:flex; align-items:baseline; gap:.4rem; font-size:.85rem; }
+    .outcome-meta-label { color:var(--text-muted); font-size:.8rem; min-width:80px; }
+    .outcome-meta-value { font-weight:600; }
+
+    /* ── Loading indicator ── */
+    .loading-bar { display:none; height:2px; background:linear-gradient(90deg, transparent, var(--monzo-coral), transparent); background-size:200% 100%; animation:slide 1s linear infinite; border-radius:2px; margin-bottom:.75rem; }
+    .loading-bar.active { display:block; }
+    @keyframes slide { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+
+    /* ── Toggle switch ── */
+    .toggle-wrap { display:flex; align-items:center; gap:.6rem; }
+    .toggle { position:relative; width:40px; height:22px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; position:absolute; }
+    .toggle-slider { position:absolute; inset:0; background:var(--monzo-border); border-radius:11px; transition:.2s; cursor:pointer; }
+    .toggle input:checked + .toggle-slider { background:var(--monzo-green); }
+    .toggle-slider::before { content:''; position:absolute; width:18px; height:18px; left:2px; top:2px; background:#fff; border-radius:50%; transition:.2s; }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(18px); }
+    .toggle-label { font-size:.875rem; font-weight:500; }
+
+    /* ── Sliders ── */
+    input[type="range"] { -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:var(--monzo-border); outline:none; cursor:pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--monzo-coral); cursor:pointer; transition:.15s; }
+    input[type="range"]::-webkit-slider-thumb:hover { transform:scale(1.2); }
+    .slider-row { margin-bottom:.9rem; }
+    .slider-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.4rem; }
+    .slider-label { font-size:.8rem; font-weight:600; color:var(--text-muted); }
+    .slider-value { font-size:.85rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--text); }
+    .slider-desc { font-size:.72rem; color:var(--text-muted); margin-top:.3rem; }
+
+    /* ── Rule toggles ── */
+    .rule-toggle-list { display:flex; flex-direction:column; gap:.5rem; }
+    .rule-toggle-item { display:flex; align-items:center; gap:.75rem; padding:.6rem .75rem; background:var(--monzo-surface); border-radius:var(--radius-sm); border:1px solid var(--monzo-border); }
+    .rule-toggle-info { flex:1; min-width:0; }
+    .rule-toggle-id { font-size:.75rem; font-family:'JetBrains Mono',monospace; color:var(--monzo-orange); }
+    .rule-toggle-desc { font-size:.8rem; color:var(--text-muted); margin-top:.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .rule-toggle-item.disabled-rule { opacity:.5; }
+
+    /* ── Toast ── */
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; padding:.7rem 1.1rem; border-radius:var(--radius-sm); font-size:.85rem; font-weight:600; z-index:9999; transition:opacity .3s; opacity:0; pointer-events:none; }
+    .toast.show { opacity:1; }
+    .toast.success { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
+    .toast.error { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
+
+    /* ── IDV routing ── */
+    .radio-group { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .radio-option { display:flex; align-items:center; gap:.4rem; }
+    .radio-option input[type="radio"] { accent-color:var(--monzo-coral); }
+    .radio-option label { margin:0; font-size:.85rem; font-weight:500; color:var(--text); cursor:pointer; }
+
+    /* ── Analytics ── */
+    .analytics-filter-row { display:flex; align-items:center; gap:.75rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+    .analytics-filter-row label { margin:0; white-space:nowrap; }
+    .analytics-filter-row input { max-width:200px; }
+    .analytics-refresh-info { font-size:.75rem; color:var(--text-muted); margin-left:auto; }
+    .metric-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.25rem; }
+    @media (max-width:700px) { .metric-cards { grid-template-columns:1fr 1fr; } }
+    .metric-card { padding:1rem 1.1rem; border-radius:var(--radius); border:1px solid var(--monzo-border); }
+    .metric-card .metric-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.4rem; }
+    .metric-card .metric-count { font-size:2rem; font-weight:700; font-family:'JetBrains Mono',monospace; line-height:1; }
+    .metric-card .metric-pct { font-size:.8rem; color:var(--text-muted); margin-top:.2rem; }
+    .metric-card.allow { background:var(--monzo-green-bg); border-color:rgba(75,183,143,.25); }
+    .metric-card.allow .metric-label { color:var(--monzo-green); }
+    .metric-card.step_up { background:var(--monzo-orange-bg); border-color:rgba(241,189,118,.25); }
+    .metric-card.step_up .metric-label { color:var(--monzo-orange); }
+    .metric-card.deny { background:var(--monzo-red-bg); border-color:rgba(254,75,96,.25); }
+    .metric-card.deny .metric-label { color:var(--monzo-red); }
+    .metric-card.manual_review { background:var(--monzo-purple-bg); border-color:rgba(155,125,220,.25); }
+    .metric-card.manual_review .metric-label { color:var(--monzo-purple); }
+    .bar-chart { display:flex; gap:.3rem; height:8px; border-radius:4px; overflow:hidden; margin:0 0 1.25rem; }
+    .bar-seg { height:100%; transition:width .5s ease; min-width:0; }
+    .bar-seg.allow { background:var(--monzo-green); }
+    .bar-seg.step_up { background:var(--monzo-orange); }
+    .bar-seg.deny { background:var(--monzo-red); }
+    .bar-seg.manual_review { background:var(--monzo-purple); }
+    .analytics-half { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
+    @media (max-width:700px) { .analytics-half { grid-template-columns:1fr; } }
+    .analytics-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+    .analytics-table th { text-align:left; color:var(--text-muted); font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; padding:.4rem .5rem; border-bottom:1px solid var(--monzo-border); }
+    .analytics-table td { padding:.4rem .5rem; border-bottom:1px solid rgba(30,58,82,.5); }
+    .analytics-table tr:last-child td { border-bottom:none; }
+    .mini-bar-row { display:flex; align-items:center; gap:.5rem; margin-bottom:.4rem; font-size:.8rem; }
+    .mini-bar-track { flex:1; height:6px; background:var(--monzo-border); border-radius:3px; overflow:hidden; }
+    .mini-bar-fill { height:100%; border-radius:3px; transition:width .5s ease; }
+    .mini-label { min-width:70px; color:var(--text-muted); }
+    .mini-count { min-width:30px; text-align:right; font-weight:600; }
+    .rule-hit-row { display:flex; align-items:center; justify-content:space-between; padding:.35rem 0; border-bottom:1px solid rgba(30,58,82,.4); font-size:.8rem; }
+    .rule-hit-row:last-child { border-bottom:none; }
+    .rule-hit-id { font-family:'JetBrains Mono',monospace; color:var(--monzo-orange); font-size:.72rem; }
+    .rule-hit-count { font-weight:700; font-family:'JetBrains Mono',monospace; }
+    .no-data { text-align:center; color:var(--text-muted); font-size:.85rem; padding:1.5rem 0; }
+
+    /* ── Status bar ── */
+    .status-bar { display:flex; gap:.75rem; flex-wrap:wrap; padding:.65rem .9rem; background:var(--monzo-surface); border:1px solid var(--monzo-border); border-radius:var(--radius-sm); margin-bottom:1.25rem; }
+    .status-item { display:flex; align-items:center; gap:.35rem; font-size:.78rem; color:var(--text-muted); }
+    .status-dot { width:7px; height:7px; border-radius:50%; background:var(--monzo-border); }
+    .status-dot.active { background:var(--monzo-green); }
+    .status-dot.inactive { background:var(--monzo-red); }
+    .status-label { font-weight:500; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-left">
+      <h1>Trust Platform</h1>
+      <p class="subtitle">Real-time trust decisions — risk assessment · authentication assurance · vendor routing</p>
+    </div>
+    <div class="header-badges" id="headerBadges">
+      <span class="badge badge-muted" id="badgeRedis"><span class="badge-dot"></span>Redis —</span>
+      <span class="badge badge-muted" id="badgeSheets"><span class="badge-dot"></span>Sheets —</span>
+    </div>
+  </header>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="simulator">Decision Simulator</button>
+    <button class="tab-btn" data-tab="control">Control Panel</button>
+    <button class="tab-btn" data-tab="analytics">Analytics</button>
+  </nav>
+
+  <!-- ══════════════════ TAB 1: DECISION SIMULATOR ══════════════════ -->
+  <div id="tab-simulator" class="tab-panel active">
+    <div class="layout">
+
+      <!-- Left: input + outcome -->
+      <div class="col">
+        <div class="card">
+          <p class="card-title">Request Parameters</p>
+          <div class="form-row">
+            <div>
+              <label for="selCustomer">Customer</label>
+              <select id="selCustomer"><option value="">— select —</option></select>
+            </div>
+            <div>
+              <label for="selDevice">Device</label>
+              <select id="selDevice"><option value="">— select —</option></select>
+            </div>
+            <div>
+              <label for="selAction">Action</label>
+              <select id="selAction"><option value="">— select —</option></select>
+            </div>
+          </div>
+          <div class="form-row-2" style="margin-top:.75rem;">
+            <div>
+              <label for="selAuthLevel">Current Auth Level</label>
+              <select id="selAuthLevel"><option value="">None (no prior auth)</option></select>
+            </div>
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn btn-primary btn-full" id="btnDecide">Get Decision</button>
+            </div>
+          </div>
+          <div class="loading-bar" id="loadingBar"></div>
+        </div>
+
+        <!-- Signal pills (shown after first decision) -->
+        <div id="signalPills" style="display:none;">
+          <div class="signal-pills" id="pillsRow"></div>
+        </div>
+
+        <!-- Outcome -->
+        <div class="card" id="outcomeCard">
+          <p class="card-title">Decision Outcome</p>
+          <div id="outcomeEmpty" class="empty-state">
+            <div class="empty-icon">◎</div>
+            <p class="empty-title">No decision yet</p>
+            <p class="empty-sub">Select a customer, device, and action above, then click "Get Decision".</p>
+          </div>
+          <div id="outcomeResult" style="display:none;">
+            <div class="outcome-row">
+              <span id="outcomeBadge"></span>
+            </div>
+            <div class="outcome-meta" id="outcomeMeta"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: trace panel -->
+      <div>
+        <div class="trace-panel" id="tracePanel">
+          <div class="trace-header">
+            <h3>Decision Trace</h3>
+            <button class="trace-toggle" id="traceToggleBtn" title="Collapse trace">▾</button>
+          </div>
+          <div id="traceBody" class="trace-body">
+            <div class="empty-state" style="padding:2rem 0;">
+              <div class="empty-icon" style="font-size:1.5rem;">⋯</div>
+              <p class="empty-sub">Trace will appear here after each decision.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════ TAB 2: CONTROL PANEL ══════════════════ -->
+  <div id="tab-control" class="tab-panel">
+
+    <div id="statusBar" class="status-bar">
+      <span class="status-item"><span class="status-dot" id="sdRedis"></span><span class="status-label">Redis:</span> <span id="sdRedisLabel">—</span></span>
+      <span class="status-item"><span class="status-dot" id="sdSheets"></span><span class="status-label">Sheets:</span> <span id="sdSheetsLabel">—</span></span>
+      <label class="toggle-wrap" style="margin-left:auto;">
+        <span class="toggle-label" style="font-size:.78rem;color:var(--text-muted);">Sync to Sheets</span>
+        <span class="toggle"><input type="checkbox" id="syncSheetsToggle"><span class="toggle-slider"></span></span>
+      </label>
+    </div>
+
+    <div class="layout">
+      <div class="col">
+
+        <!-- Velocity Enforcement -->
+        <div class="card">
+          <div class="card-title-row">
+            <p class="card-title">Velocity Enforcement</p>
+            <label class="toggle-wrap">
+              <span class="toggle"><input type="checkbox" id="velocityToggle"><span class="toggle-slider"></span></span>
+              <span class="toggle-label" id="velocityToggleLabel">Loading…</span>
+            </label>
+          </div>
+          <p style="font-size:.82rem;color:var(--text-muted);margin:0;">Blocks or flags customers making too many requests in a short window. Toggle on/off without restarting the server — useful for demo mode. Rules: &gt;5 req/min → Deny, &gt;10 req/5min → Manual Review.</p>
+          <p style="font-size:.75rem;color:var(--monzo-orange);margin:.75rem 0 0;" id="velocityRedisNote"></p>
+        </div>
+
+        <!-- Risk Bands -->
+        <div class="card">
+          <p class="card-title">Risk Bands (Fraud Score Thresholds)</p>
+          <div class="slider-row">
+            <div class="slider-header">
+              <span class="slider-label">HIGH Risk — fraud score ≥</span>
+              <span class="slider-value" id="valHighMin">71</span>
+            </div>
+            <input type="range" id="slHighMin" min="50" max="95" step="1" value="71">
+            <p class="slider-desc">Customers with score at or above this threshold are treated as HIGH risk.</p>
+          </div>
+          <div class="slider-row">
+            <div class="slider-header">
+              <span class="slider-label">MEDIUM Risk — fraud score ≥</span>
+              <span class="slider-value" id="valMedMin">31</span>
+            </div>
+            <input type="range" id="slMedMin" min="10" max="69" step="1" value="31">
+            <p class="slider-desc">Scores between this and HIGH threshold are treated as MEDIUM risk.</p>
+          </div>
+          <div class="slider-row" style="margin-bottom:0;">
+            <div class="slider-header">
+              <span class="slider-label">LOW Risk preview — fraud score ≤</span>
+              <span class="slider-value" id="valLowMax">30</span>
+            </div>
+            <input type="range" disabled min="0" max="49" step="1" value="30" id="slLowMax" style="opacity:.4;">
+            <p class="slider-desc">Derived automatically: anything below MEDIUM threshold is LOW risk.</p>
+          </div>
+          <button class="btn btn-primary btn-sm btn-full" id="btnSaveRiskBands">Save Risk Bands</button>
+        </div>
+
+        <!-- Formula Weights -->
+        <div class="card">
+          <p class="card-title">Confidence Formula Weights</p>
+          <div class="slider-row">
+            <div class="slider-header">
+              <span class="slider-label">Device Trust Weight</span>
+              <span class="slider-value" id="valDeviceWeight">40%</span>
+            </div>
+            <input type="range" id="slDeviceWeight" min="0" max="100" step="5" value="40">
+          </div>
+          <div class="slider-row" style="margin-bottom:.5rem;">
+            <div class="slider-header">
+              <span class="slider-label">Fraud Score Weight</span>
+              <span class="slider-value" id="valFraudWeight">60%</span>
+            </div>
+            <input type="range" id="slFraudWeight" min="0" max="100" step="5" value="60" style="opacity:.6;" disabled>
+          </div>
+          <div style="background:var(--monzo-surface);border-radius:var(--radius-sm);padding:.6rem .85rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-muted);margin-bottom:.75rem;" id="formulaPreview">
+            confidence = (deviceScore/100 × 40) + ((100−fraudScore)/100 × 60)
+          </div>
+          <button class="btn btn-primary btn-sm btn-full" id="btnSaveWeights">Save Formula Weights</button>
+        </div>
+
+      </div>
+      <div class="col">
+
+        <!-- Tier Requirements -->
+        <div class="card">
+          <p class="card-title">Required Confidence per Tier</p>
+          <div id="tierSlidersContainer">
+            <div class="slider-row">
+              <div class="slider-header"><span class="slider-label">Tier 1 (balance, login)</span><span class="slider-value" id="valTier1">45</span></div>
+              <input type="range" class="tier-slider" data-tier="Tier1" min="0" max="100" step="5" value="45">
+            </div>
+            <div class="slider-row">
+              <div class="slider-header"><span class="slider-label">Tier 2 (payments, transfers)</span><span class="slider-value" id="valTier2">60</span></div>
+              <input type="range" class="tier-slider" data-tier="Tier2" min="0" max="100" step="5" value="60">
+            </div>
+            <div class="slider-row">
+              <div class="slider-header"><span class="slider-label">Tier 3 (high-value actions)</span><span class="slider-value" id="valTier3">75</span></div>
+              <input type="range" class="tier-slider" data-tier="Tier3" min="0" max="100" step="5" value="75">
+            </div>
+            <div class="slider-row" style="margin-bottom:0;">
+              <div class="slider-header"><span class="slider-label">Tier 4 (account recovery)</span><span class="slider-value" id="valTier4">85</span></div>
+              <input type="range" class="tier-slider" data-tier="Tier4" min="0" max="100" step="5" value="85">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm btn-full" id="btnSaveTiers">Save Tier Requirements</button>
+        </div>
+
+        <!-- Policy Rules -->
+        <div class="card">
+          <p class="card-title">Policy Rules</p>
+          <div class="rule-toggle-list" id="ruleToggleList">
+            <div class="skeleton" style="height:42px;border-radius:8px;"></div>
+            <div class="skeleton" style="height:42px;border-radius:8px;margin-top:.5rem;"></div>
+          </div>
+          <button class="btn btn-secondary btn-sm btn-full" id="btnSaveRules" style="margin-top:.75rem;">Save Rule Toggles</button>
+        </div>
+
+        <!-- IDV Routing -->
+        <div class="card">
+          <p class="card-title">IDV Vendor Routing</p>
+          <div style="margin-bottom:.75rem;">
+            <label style="margin-bottom:.5rem;">Active Strategy</label>
+            <div class="radio-group" id="idvStrategyGroup">
+              <label class="radio-option"><input type="radio" name="idvStrategy" value="percent_split"> <label>Percent Split</label></label>
+              <label class="radio-option"><input type="radio" name="idvStrategy" value="round_robin"> <label>Round Robin</label></label>
+              <label class="radio-option"><input type="radio" name="idvStrategy" value="time_based"> <label>Time Based</label></label>
+              <label class="radio-option"><input type="radio" name="idvStrategy" value="geo_based"> <label>Geo Based</label></label>
+            </div>
+          </div>
+          <div id="percentSplitControls" style="margin-bottom:.75rem;">
+            <div class="slider-row" style="margin-bottom:0;">
+              <div class="slider-header">
+                <span class="slider-label">Vendor 1 share</span>
+                <span class="slider-value" id="valVendor1Pct">70%</span>
+              </div>
+              <input type="range" id="slVendor1Pct" min="0" max="100" step="5" value="70">
+              <p class="slider-desc" id="vendor2PctLabel">Vendor 2 receives the remaining 30%</p>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm btn-full" id="btnSaveIDV">Save Routing</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ TAB 3: ANALYTICS ══════════════════ -->
+  <div id="tab-analytics" class="tab-panel">
+    <div class="analytics-filter-row">
+      <label>Customer filter:</label>
+      <input type="text" id="analyticsCustomerFilter" placeholder="e.g. cust_retail_001" style="max-width:220px;">
+      <button class="btn btn-secondary btn-sm" id="btnAnalyticsFilter">Apply</button>
+      <button class="btn btn-secondary btn-sm" id="btnAnalyticsClear">Clear Filter</button>
+      <span class="analytics-refresh-info" id="analyticsRefreshInfo">Auto-refresh every 10s</span>
+      <button class="btn btn-secondary btn-sm" id="btnAnalyticsRefresh">Refresh</button>
+    </div>
+
+    <!-- Decision metric cards -->
+    <div class="metric-cards">
+      <div class="metric-card allow">
+        <div class="metric-label">Allow</div>
+        <div class="metric-count" id="metAllow">—</div>
+        <div class="metric-pct" id="metAllowPct">0% of decisions</div>
+      </div>
+      <div class="metric-card step_up">
+        <div class="metric-label">Step Up</div>
+        <div class="metric-count" id="metStepUp">—</div>
+        <div class="metric-pct" id="metStepUpPct">0% of decisions</div>
+      </div>
+      <div class="metric-card deny">
+        <div class="metric-label">Deny</div>
+        <div class="metric-count" id="metDeny">—</div>
+        <div class="metric-pct" id="metDenyPct">0% of decisions</div>
+      </div>
+      <div class="metric-card manual_review">
+        <div class="metric-label">Manual Review</div>
+        <div class="metric-count" id="metManual">—</div>
+        <div class="metric-pct" id="metManualPct">0% of decisions</div>
+      </div>
+    </div>
+
+    <!-- Bar chart -->
+    <div class="bar-chart" id="analyticsBarChart">
+      <div class="bar-seg allow" id="barAllow" style="width:0%"></div>
+      <div class="bar-seg step_up" id="barStepUp" style="width:0%"></div>
+      <div class="bar-seg deny" id="barDeny" style="width:0%"></div>
+      <div class="bar-seg manual_review" id="barManual" style="width:0%"></div>
+    </div>
+
+    <div class="analytics-half">
+      <!-- Step-up breakdown -->
+      <div class="card">
+        <p class="card-title">Step-up Type Breakdown</p>
+        <div id="stepUpBreakdown"><p class="no-data">No data yet</p></div>
+      </div>
+
+      <!-- Rule hit counts -->
+      <div class="card">
+        <p class="card-title">Rule Hit Counts</p>
+        <div id="ruleHitList"><p class="no-data">No decisions recorded</p></div>
+      </div>
+    </div>
+
+    <div class="analytics-half">
+      <!-- Per-action table -->
+      <div class="card">
+        <p class="card-title">Outcomes by Action</p>
+        <div id="perActionTable"><p class="no-data">No data yet</p></div>
+      </div>
+
+      <!-- Per-risk-level table -->
+      <div class="card">
+        <p class="card-title">Outcomes by Risk Level</p>
+        <div id="perRiskTable"><p class="no-data">No data yet</p></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="globalToast"></div>
+
+<script>
+// ────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ────────────────────────────────────────────────────────────────────────────
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('globalToast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, { headers: {'Content-Type':'application/json'}, ...opts });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tab switching
+// ────────────────────────────────────────────────────────────────────────────
+
+let tabsInitialized = {};
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const tabId = btn.dataset.tab;
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    if (tabId === 'analytics' && !tabsInitialized.analytics) {
+      tabsInitialized.analytics = true;
+      loadAnalytics();
+      startAnalyticsAutoRefresh();
+    }
+    if (tabId === 'control' && !tabsInitialized.control) {
+      tabsInitialized.control = true;
+      loadControlPanel();
+    }
+    activeTab = tabId;
+  });
+});
+
+let activeTab = 'simulator';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Status badges
+// ────────────────────────────────────────────────────────────────────────────
+
+async function loadStatus() {
+  try {
+    const s = await apiFetch('/status');
+    // Header badges
+    const badgeRedis = document.getElementById('badgeRedis');
+    badgeRedis.className = `badge ${s.redis ? 'badge-green' : 'badge-muted'}`;
+    badgeRedis.innerHTML = `<span class="badge-dot"></span>Redis ${s.redis ? 'Active' : 'Off'}`;
+
+    const badgeSheets = document.getElementById('badgeSheets');
+    badgeSheets.className = `badge ${s.sheetsConfigured ? 'badge-green' : 'badge-muted'}`;
+    badgeSheets.innerHTML = `<span class="badge-dot"></span>Sheets ${s.sheetsConfigured ? 'Connected' : 'Not configured'}`;
+
+    // Control panel status bar
+    document.getElementById('sdRedis').className = `status-dot ${s.redis ? 'active' : 'inactive'}`;
+    document.getElementById('sdRedisLabel').textContent = s.redis ? 'Connected' : 'Not connected';
+    document.getElementById('sdSheets').className = `status-dot ${s.sheetsConfigured ? 'active' : 'inactive'}`;
+    document.getElementById('sdSheetsLabel').textContent = s.sheetsConfigured ? 'Configured' : 'Not configured';
+
+    // Velocity note
+    const note = document.getElementById('velocityRedisNote');
+    if (!s.redis) note.textContent = '⚠ Redis not connected — velocity rules will not fire (signals return 0).';
+    else note.textContent = '';
+  } catch (_) {}
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tab 1: Decision Simulator
+// ────────────────────────────────────────────────────────────────────────────
+
+async function populateDropdowns() {
+  try {
+    const [{ users }, { devices }, { actions }, { authenticators }] = await Promise.all([
+      apiFetch('/data/users'), apiFetch('/data/devices'), apiFetch('/data/actions'), apiFetch('/data/authenticators')
+    ]);
+
+    const sel = (id, items, textFn, val = i => i.id || i.customer_id || i.device_id) => {
+      const el = document.getElementById(id);
+      items.forEach(i => {
+        const o = document.createElement('option');
+        o.value = val(i);
+        o.textContent = textFn(i);
+        el.appendChild(o);
+      });
+    };
+
+    sel('selCustomer', users, u => `${u.customer_id} — fraud: ${u.fraud_score} | ${u.geography || '?'}`, u => u.customer_id);
+    sel('selDevice', devices, d => `${d.device_id} — trust: ${d.device_score}`, d => d.device_id);
+    sel('selAction', actions, a => `${a.name} (${a.tier}, AL${a.required_al || '?'})`, a => a.id);
+    sel('selAuthLevel', authenticators, a => `${a.name} (${a.assurance_level}, conf: ${a.confidence_level})`, a => a.id);
+  } catch (err) {
+    console.error('Failed to load dropdowns:', err);
+  }
+}
+
+document.getElementById('btnDecide').addEventListener('click', runDecision);
+
+async function runDecision() {
+  const customer_id = document.getElementById('selCustomer').value;
+  const device_id = document.getElementById('selDevice').value;
+  const action = document.getElementById('selAction').value;
+  const current_auth_level = document.getElementById('selAuthLevel').value || null;
+
+  if (!customer_id || !device_id || !action) {
+    showToast('Please select Customer, Device, and Action.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnDecide');
+  const bar = document.getElementById('loadingBar');
+  btn.disabled = true;
+  bar.classList.add('active');
+
+  try {
+    const result = await apiFetch('/trust/decision', {
+      method: 'POST',
+      body: JSON.stringify({ customer_id, action, device_id, current_auth_level })
+    });
+    renderOutcome(result);
+    renderTrace(result.trace);
+    renderSignalPills(result.trace);
+  } catch (err) {
+    showToast(`Decision failed: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    bar.classList.remove('active');
+  }
+}
+
+function renderSignalPills(trace) {
+  if (!trace) return;
+  const ctx = trace.context || {};
+  const pills = document.getElementById('pillsRow');
+  const container = document.getElementById('signalPills');
+
+  const riskClass = ctx.riskLevel ? `risk-${ctx.riskLevel}` : '';
+  const dScore = ctx.deviceScore ?? '?';
+  const trustClass = dScore >= 70 ? 'trust-high' : dScore >= 30 ? 'trust-med' : 'trust-low';
+  const trustLabel = dScore >= 70 ? 'Trusted' : dScore >= 30 ? 'Moderate' : 'Untrusted';
+
+  pills.innerHTML = `
+    <span class="pill ${riskClass}">fraud: ${ctx.fraudScore ?? '?'} | ${ctx.riskLevel || '?'}</span>
+    <span class="pill ${trustClass}">device: ${dScore} | ${trustLabel}</span>
+    <span class="pill">${ctx.actionTier || '?'}</span>
+    <span class="pill">conf: ${ctx.effectiveConfidence ?? '?'}</span>
+    <span class="pill">AL: ${ctx.currentAL || 'None'}</span>
+    ${ctx.velocity && (ctx.velocity.velocity_1m > 0) ? `<span class="pill">vel 1m: ${ctx.velocity.velocity_1m}</span>` : ''}
+  `;
+  container.style.display = 'block';
+}
+
+function renderOutcome(result) {
+  const empty = document.getElementById('outcomeEmpty');
+  const res = document.getElementById('outcomeResult');
+  empty.style.display = 'none';
+  res.style.display = 'block';
+
+  const badge = document.getElementById('outcomeBadge');
+  const labels = { ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
+  badge.className = `outcome-badge ${result.decision}`;
+  badge.textContent = labels[result.decision] || result.decision;
+  // Force reflow for animation replay
+  badge.style.animation = 'none';
+  badge.offsetHeight;
+  badge.style.animation = '';
+
+  const meta = document.getElementById('outcomeMeta');
+  let html = `<div class="outcome-meta-row"><span class="outcome-meta-label">Reason</span><span class="outcome-meta-value" style="font-size:.82rem;color:var(--text-muted);">${escHtml(result.reason || '—')}</span></div>`;
+  if (result.step_up_type) {
+    html += `<div class="outcome-meta-row"><span class="outcome-meta-label">Step-up</span><span class="outcome-meta-value">${escHtml(result.step_up_type)}</span></div>`;
+  }
+  if (result.idv_vendor) {
+    html += `<div class="outcome-meta-row"><span class="outcome-meta-label">IDV Vendor</span><span class="outcome-meta-value">${escHtml(result.idv_vendor)} <span style="color:var(--text-muted);font-size:.78rem;">(${escHtml(result.idv_routing?.strategy || '')})</span></span></div>`;
+  }
+  meta.innerHTML = html;
+}
+
+function renderTrace(trace) {
+  if (!trace) return;
+  const body = document.getElementById('traceBody');
+
+  const section = (title, content, startOpen = false) => `
+    <div class="trace-section">
+      <div class="trace-section-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">
+        <span class="trace-section-title">${title}</span>
+        <span style="color:var(--text-muted);font-size:.8rem;">${startOpen ? '▾' : '▸'}</span>
+      </div>
+      <div class="trace-section-body ${startOpen ? '' : 'collapsed'}">${content}</div>
+    </div>`;
+
+  // Input section
+  const inputHtml = jsonBlock(trace.input);
+
+  // Data lookup
+  const lookupHtml = jsonBlock(trace.data_lookup);
+
+  // Context (aggregated signals)
+  const ctx = trace.context || {};
+  const ctxHtml = jsonBlock(ctx);
+
+  // Confidence calculation
+  const confHtml = jsonBlock(trace.confidence_calculation);
+
+  // Policy rules
+  let rulesHtml = '';
+  if (trace.policy && trace.policy.rules_evaluated) {
+    rulesHtml = trace.policy.rules_evaluated.map(r => {
+      const cls = r.skipped ? 'skipped' : r.matched ? 'matched' : 'unmatched';
+      const icon = r.skipped ? '—' : r.matched ? '✓' : '✗';
+      return `<div class="rule-row ${cls}">
+        <span class="rule-dot"></span>
+        <div>
+          <div><span class="rule-id">${icon} ${escHtml(r.ruleId)}</span></div>
+          <div class="rule-detail">${escHtml(r.conditionSummary || r.description || '')}</div>
+          ${r.skipped ? '<div class="rule-detail">skipped (disabled)</div>' : ''}
+          ${r.conditionSteps && r.conditionSteps.length > 0 && !r.skipped ? r.conditionSteps.map(s => `<div class="rule-detail">${escHtml(s.check)}: ${s.result ? '✓' : '✗'} (${escHtml(String(s.value))})</div>`).join('') : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if (trace.policy && trace.policy.default_used) {
+    rulesHtml += `<div class="rule-row matched"><span class="rule-dot"></span><div><span class="rule-id">★ default</span><div class="rule-detail">No rules matched; default applied</div></div></div>`;
+  }
+
+  // IDV routing
+  const idvHtml = trace.idv_routing ? jsonBlock(trace.idv_routing) : '<span style="color:var(--text-muted);font-size:.78rem;">No IDV routing (not an IDV step-up)</span>';
+
+  body.innerHTML =
+    section('1 · Input', inputHtml, true) +
+    section('2 · Data Lookup', lookupHtml) +
+    section('3 · Computed Context', ctxHtml) +
+    section('4 · Confidence Calculation', confHtml) +
+    section('5 · Policy Rules', rulesHtml, true) +
+    section('6 · IDV Routing', idvHtml);
+}
+
+function jsonBlock(obj) {
+  return `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;">${escHtml(JSON.stringify(obj, null, 2))}</pre>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Trace panel collapse toggle
+document.getElementById('traceToggleBtn').addEventListener('click', () => {
+  const btn = document.getElementById('traceToggleBtn');
+  const body = document.getElementById('traceBody');
+  const collapsed = btn.classList.toggle('collapsed');
+  body.style.display = collapsed ? 'none' : '';
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tab 2: Control Panel
+// ────────────────────────────────────────────────────────────────────────────
+
+let rulesList = [];
+
+async function loadControlPanel() {
+  await loadStatus();
+  try {
+    const [conf, dec, idv] = await Promise.all([
+      apiFetch('/policies/confidence'),
+      apiFetch('/policies/decisions'),
+      apiFetch('/policies/idvRouting')
+    ]);
+
+    // Risk bands
+    const bands = conf.riskLevelBands || {};
+    const highMin = bands.HIGH?.fraudScoreMin ?? 71;
+    const medMin = bands.MEDIUM?.fraudScoreMin ?? 31;
+    setSlider('slHighMin', 'valHighMin', highMin);
+    setSlider('slMedMin', 'valMedMin', medMin);
+    setSlider('slLowMax', 'valLowMax', medMin - 1);
+
+    // Formula weights
+    const fw = conf.effectiveConfidence || {};
+    const dw = fw.deviceWeight ?? 40;
+    setSlider('slDeviceWeight', 'valDeviceWeight', dw, v => `${v}%`);
+    document.getElementById('slFraudWeight').value = 100 - dw;
+    document.getElementById('valFraudWeight').textContent = `${100 - dw}%`;
+    updateFormulaPreview(dw);
+
+    // Tier requirements
+    const tierReqs = conf.actionTierRequirements || {};
+    ['Tier1','Tier2','Tier3','Tier4'].forEach((t, i) => {
+      const num = i + 1;
+      const val = tierReqs[t] ?? [45,60,75,85][i];
+      const slider = document.querySelector(`.tier-slider[data-tier="${t}"]`);
+      if (slider) { slider.value = val; document.getElementById(`valTier${num}`).textContent = val; }
+    });
+
+    // Policy rules
+    rulesList = dec.rules || [];
+    renderRuleToggles(rulesList);
+
+    // Velocity toggle state
+    const velocityEnabled = rulesList.find(r => r.id === 'deny_velocity_burst')?.enabled !== false;
+    document.getElementById('velocityToggle').checked = velocityEnabled;
+    document.getElementById('velocityToggleLabel').textContent = velocityEnabled ? 'ON' : 'OFF';
+
+    // IDV routing
+    const activeStrategy = idv.active_strategy || 'percent_split';
+    const radio = document.querySelector(`input[name="idvStrategy"][value="${activeStrategy}"]`);
+    if (radio) radio.checked = true;
+    updateIdvStrategyUI(activeStrategy);
+
+    const splits = idv.strategies?.percent_split?.splits || [];
+    const v1Split = splits.find(s => s.vendor === 'vendor_1');
+    if (v1Split) {
+      setSlider('slVendor1Pct', 'valVendor1Pct', v1Split.percent ?? 70, v => `${v}%`);
+      document.getElementById('vendor2PctLabel').textContent = `Vendor 2 receives the remaining ${100 - (v1Split.percent ?? 70)}%`;
+    }
+
+  } catch (err) {
+    showToast('Failed to load control panel: ' + err.message, 'error');
+  }
+}
+
+function setSlider(sliderId, labelId, value, fmt = v => v) {
+  const sl = document.getElementById(sliderId);
+  const lbl = document.getElementById(labelId);
+  if (sl) sl.value = value;
+  if (lbl) lbl.textContent = fmt(value);
+}
+
+function updateFormulaPreview(dw) {
+  const fw = 100 - dw;
+  document.getElementById('formulaPreview').textContent =
+    `confidence = (deviceScore/100 × ${dw}) + ((100−fraudScore)/100 × ${fw})`;
+}
+
+function renderRuleToggles(rules) {
+  const container = document.getElementById('ruleToggleList');
+  container.innerHTML = rules.map((r, idx) => {
+    const enabled = r.enabled !== false;
+    return `<div class="rule-toggle-item ${enabled ? '' : 'disabled-rule'}" id="ruleItem_${idx}">
+      <label class="toggle" title="${escHtml(r.description || '')}">
+        <input type="checkbox" class="rule-toggle-cb" data-ruleid="${escHtml(r.id)}" ${enabled ? 'checked' : ''} onchange="onRuleToggle(this)">
+        <span class="toggle-slider"></span>
+      </label>
+      <div class="rule-toggle-info">
+        <div class="rule-toggle-id">${escHtml(r.id)}</div>
+        <div class="rule-toggle-desc">${escHtml(r.description || '')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onRuleToggle(checkbox) {
+  const parent = checkbox.closest('.rule-toggle-item');
+  if (checkbox.checked) parent.classList.remove('disabled-rule');
+  else parent.classList.add('disabled-rule');
+}
+
+// Linked sliders
+document.getElementById('slDeviceWeight').addEventListener('input', function() {
+  const dw = Number(this.value);
+  document.getElementById('valDeviceWeight').textContent = `${dw}%`;
+  document.getElementById('slFraudWeight').value = 100 - dw;
+  document.getElementById('valFraudWeight').textContent = `${100 - dw}%`;
+  updateFormulaPreview(dw);
+});
+
+document.getElementById('slHighMin').addEventListener('input', function() {
+  document.getElementById('valHighMin').textContent = this.value;
+  // Ensure med < high
+  const medSlider = document.getElementById('slMedMin');
+  if (Number(medSlider.value) >= Number(this.value)) {
+    medSlider.value = Number(this.value) - 1;
+    document.getElementById('valMedMin').textContent = medSlider.value;
+    updateLowMax();
+  }
+});
+document.getElementById('slMedMin').addEventListener('input', function() {
+  document.getElementById('valMedMin').textContent = this.value;
+  updateLowMax();
+});
+function updateLowMax() {
+  const med = Number(document.getElementById('slMedMin').value);
+  document.getElementById('slLowMax').value = med - 1;
+  document.getElementById('valLowMax').textContent = med - 1;
+}
+
+document.querySelectorAll('.tier-slider').forEach(sl => {
+  sl.addEventListener('input', function() {
+    const num = ['Tier1','Tier2','Tier3','Tier4'].indexOf(this.dataset.tier) + 1;
+    document.getElementById(`valTier${num}`).textContent = this.value;
+  });
+});
+
+document.getElementById('slVendor1Pct').addEventListener('input', function() {
+  document.getElementById('valVendor1Pct').textContent = `${this.value}%`;
+  document.getElementById('vendor2PctLabel').textContent = `Vendor 2 receives the remaining ${100 - Number(this.value)}%`;
+});
+
+document.querySelectorAll('input[name="idvStrategy"]').forEach(r => {
+  r.addEventListener('change', () => updateIdvStrategyUI(r.value));
+});
+function updateIdvStrategyUI(strategy) {
+  document.getElementById('percentSplitControls').style.display = strategy === 'percent_split' ? 'block' : 'none';
+}
+
+// Velocity toggle
+document.getElementById('velocityToggle').addEventListener('change', async function() {
+  const enabled = this.checked;
+  try {
+    await apiFetch('/policies/velocity-toggle', { method:'POST', body: JSON.stringify({ enabled }) });
+    document.getElementById('velocityToggleLabel').textContent = enabled ? 'ON' : 'OFF';
+    showToast(`Velocity enforcement ${enabled ? 'enabled' : 'disabled'}`);
+  } catch (err) {
+    this.checked = !enabled; // revert
+    showToast('Failed to toggle velocity: ' + err.message, 'error');
+  }
+});
+
+// Save buttons
+document.getElementById('btnSaveRiskBands').addEventListener('click', async () => {
+  const highMin = Number(document.getElementById('slHighMin').value);
+  const medMin = Number(document.getElementById('slMedMin').value);
+  try {
+    await patchPolicy('/policies/confidence', {
+      riskLevelBands: {
+        HIGH: { fraudScoreMin: highMin },
+        MEDIUM: { fraudScoreMin: medMin, fraudScoreMax: highMin - 1 },
+        LOW: { fraudScoreMax: medMin - 1 }
+      }
+    });
+    showToast('Risk bands saved');
+  } catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+});
+
+document.getElementById('btnSaveWeights').addEventListener('click', async () => {
+  const dw = Number(document.getElementById('slDeviceWeight').value);
+  try {
+    await patchPolicy('/policies/confidence', { effectiveConfidence: { deviceWeight: dw, fraudWeight: 100 - dw, useAuthenticatorMax: true } });
+    showToast('Formula weights saved');
+  } catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+});
+
+document.getElementById('btnSaveTiers').addEventListener('click', async () => {
+  const reqs = {};
+  document.querySelectorAll('.tier-slider').forEach(sl => { reqs[sl.dataset.tier] = Number(sl.value); });
+  try {
+    await patchPolicy('/policies/confidence', { actionTierRequirements: reqs });
+    showToast('Tier requirements saved');
+  } catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+});
+
+document.getElementById('btnSaveRules').addEventListener('click', async () => {
+  const patches = [];
+  document.querySelectorAll('.rule-toggle-cb').forEach(cb => {
+    patches.push({ id: cb.dataset.ruleid, enabled: cb.checked });
+  });
+  try {
+    await apiFetch('/policies/decisions', { method:'PATCH', body: JSON.stringify({ rules: patches }) });
+    showToast('Rule toggles saved');
+  } catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+});
+
+document.getElementById('btnSaveIDV').addEventListener('click', async () => {
+  const strategy = document.querySelector('input[name="idvStrategy"]:checked')?.value;
+  if (!strategy) return;
+  const patch = { active_strategy: strategy };
+  if (strategy === 'percent_split') {
+    const v1pct = Number(document.getElementById('slVendor1Pct').value);
+    patch.strategies = {
+      percent_split: { type: 'percent_split', splits: [{ vendor: 'vendor_1', percent: v1pct }, { vendor: 'vendor_2', percent: 100 - v1pct }] }
+    };
+  }
+  try {
+    await apiFetch('/policies/idvRouting', { method:'PATCH', body: JSON.stringify(patch) });
+    showToast('IDV routing saved');
+  } catch (err) { showToast('Save failed: ' + err.message, 'error'); }
+});
+
+async function patchPolicy(url, body) {
+  const syncSheets = document.getElementById('syncSheetsToggle').checked;
+  const finalUrl = syncSheets ? `${url}?sync_sheets=true` : url;
+  return apiFetch(finalUrl, { method:'PATCH', body: JSON.stringify(body) });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tab 3: Analytics
+// ────────────────────────────────────────────────────────────────────────────
+
+let analyticsFilter = null;
+let analyticsRefreshInterval = null;
+let analyticsLastUpdated = null;
+
+async function loadAnalytics() {
+  try {
+    const url = analyticsFilter ? `/analytics?customer_id=${encodeURIComponent(analyticsFilter)}` : '/analytics';
+    const data = await apiFetch(url);
+    renderAnalytics(data);
+    analyticsLastUpdated = Date.now();
+    updateRefreshInfo();
+  } catch (err) {
+    console.warn('Analytics load failed:', err.message);
+  }
+}
+
+function updateRefreshInfo() {
+  const el = document.getElementById('analyticsRefreshInfo');
+  if (analyticsLastUpdated) {
+    const sec = Math.round((Date.now() - analyticsLastUpdated) / 1000);
+    el.textContent = `Updated ${sec}s ago · auto-refresh 10s`;
+  }
+}
+
+function startAnalyticsAutoRefresh() {
+  if (analyticsRefreshInterval) return;
+  analyticsRefreshInterval = setInterval(() => {
+    if (activeTab === 'analytics') { loadAnalytics(); }
+    else { updateRefreshInfo(); }
+  }, 10000);
+  setInterval(updateRefreshInfo, 1000);
+}
+
+document.getElementById('btnAnalyticsRefresh').addEventListener('click', loadAnalytics);
+
+document.getElementById('btnAnalyticsFilter').addEventListener('click', () => {
+  analyticsFilter = document.getElementById('analyticsCustomerFilter').value.trim() || null;
+  loadAnalytics();
+});
+document.getElementById('analyticsCustomerFilter').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btnAnalyticsFilter').click();
+});
+document.getElementById('btnAnalyticsClear').addEventListener('click', () => {
+  analyticsFilter = null;
+  document.getElementById('analyticsCustomerFilter').value = '';
+  loadAnalytics();
+});
+
+function renderAnalytics(data) {
+  const { total = 0, decisionCounts = {}, decisionPct = {}, stepUpCounts = {}, perAction = {}, perRiskLevel = {}, ruleCounts = {} } = data;
+
+  // Metric cards
+  document.getElementById('metAllow').textContent = decisionCounts.ALLOW ?? 0;
+  document.getElementById('metAllowPct').textContent = `${decisionPct.ALLOW ?? 0}% of decisions`;
+  document.getElementById('metStepUp').textContent = decisionCounts.STEP_UP ?? 0;
+  document.getElementById('metStepUpPct').textContent = `${decisionPct.STEP_UP ?? 0}% of decisions`;
+  document.getElementById('metDeny').textContent = decisionCounts.DENY ?? 0;
+  document.getElementById('metDenyPct').textContent = `${decisionPct.DENY ?? 0}% of decisions`;
+  document.getElementById('metManual').textContent = decisionCounts.MANUAL_REVIEW ?? 0;
+  document.getElementById('metManualPct').textContent = `${decisionPct.MANUAL_REVIEW ?? 0}% of decisions`;
+
+  // Bar chart
+  document.getElementById('barAllow').style.width = `${decisionPct.ALLOW ?? 0}%`;
+  document.getElementById('barStepUp').style.width = `${decisionPct.STEP_UP ?? 0}%`;
+  document.getElementById('barDeny').style.width = `${decisionPct.DENY ?? 0}%`;
+  document.getElementById('barManual').style.width = `${decisionPct.MANUAL_REVIEW ?? 0}%`;
+
+  // Step-up breakdown
+  const stepUpContainer = document.getElementById('stepUpBreakdown');
+  const STEPUP_COLORS = { PASSKEY: '#4BB78F', SELFIE: '#F1BD76', IDV: '#FF4B44', PASSCODE: '#9B7DDC' };
+  const maxStepUp = Math.max(...Object.values(stepUpCounts), 1);
+  if (Object.keys(stepUpCounts).length === 0) {
+    stepUpContainer.innerHTML = '<p class="no-data">No step-ups recorded</p>';
+  } else {
+    stepUpContainer.innerHTML = Object.entries(stepUpCounts).map(([type, count]) =>
+      `<div class="mini-bar-row">
+        <span class="mini-label">${escHtml(type)}</span>
+        <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.round(count/maxStepUp*100)}%;background:${STEPUP_COLORS[type]||'#8fa3b8'};"></div></div>
+        <span class="mini-count">${count}</span>
+      </div>`).join('');
+  }
+
+  // Rule hit counts
+  const ruleHitEl = document.getElementById('ruleHitList');
+  if (Object.keys(ruleCounts).length === 0) {
+    ruleHitEl.innerHTML = '<p class="no-data">No decisions recorded</p>';
+  } else {
+    ruleHitEl.innerHTML = Object.entries(ruleCounts).map(([id, cnt]) =>
+      `<div class="rule-hit-row"><span class="rule-hit-id">${escHtml(id)}</span><span class="rule-hit-count">${cnt}</span></div>`
+    ).join('');
+  }
+
+  // Per-action table
+  const perActionEl = document.getElementById('perActionTable');
+  const actionEntries = Object.entries(perAction);
+  if (actionEntries.length === 0) {
+    perActionEl.innerHTML = '<p class="no-data">No data yet</p>';
+  } else {
+    perActionEl.innerHTML = `<table class="analytics-table">
+      <thead><tr><th>Action</th><th>Allow</th><th>StepUp</th><th>Deny</th><th>Review</th></tr></thead>
+      <tbody>${actionEntries.map(([action, counts]) =>
+        `<tr><td>${escHtml(action)}</td><td>${counts.ALLOW||0}</td><td>${counts.STEP_UP||0}</td><td>${counts.DENY||0}</td><td>${counts.MANUAL_REVIEW||0}</td></tr>`
+      ).join('')}</tbody></table>`;
+  }
+
+  // Per-risk table
+  const perRiskEl = document.getElementById('perRiskTable');
+  const riskOrder = ['HIGH','MEDIUM','LOW'];
+  const riskEntries = riskOrder.filter(r => perRiskLevel[r]).map(r => [r, perRiskLevel[r]]);
+  if (riskEntries.length === 0) {
+    perRiskEl.innerHTML = '<p class="no-data">No data yet</p>';
+  } else {
+    perRiskEl.innerHTML = `<table class="analytics-table">
+      <thead><tr><th>Risk Level</th><th>Allow</th><th>StepUp</th><th>Deny</th><th>Review</th></tr></thead>
+      <tbody>${riskEntries.map(([level, counts]) =>
+        `<tr><td>${escHtml(level)}</td><td>${counts.ALLOW||0}</td><td>${counts.STEP_UP||0}</td><td>${counts.DENY||0}</td><td>${counts.MANUAL_REVIEW||0}</td></tr>`
+      ).join('')}</tbody></table>`;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Init
+// ────────────────────────────────────────────────────────────────────────────
+
+loadStatus();
+populateDropdowns();
+</script>
+</body>
+</html>

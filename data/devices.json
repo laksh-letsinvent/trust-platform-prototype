@@ -1,0 +1,11 @@
+{
+  "devices": [
+    { "device_id": "Device1", "device_score": 85 },
+    { "device_id": "Device2", "device_score": 90 },
+    { "device_id": "Device3", "device_score": 88 },
+    { "device_id": "Device4", "device_score": 25 },
+    { "device_id": "Device5", "device_score": 15 },
+    { "device_id": "Device6", "device_score": 82 },
+    { "device_id": "Device7", "device_score": 20 }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "authenticators": [
+    { "id": "FACEID", "name": "Face ID", "assurance_level": "AL1", "confidence_level": 40, "description": "Biometric Face ID" },
+    { "id": "PASSCODE", "name": "Passcode / PIN", "assurance_level": "AL2", "confidence_level": 55, "description": "Knowledge-based step-up" },
+    { "id": "OTP", "name": "One-time password", "assurance_level": "AL2", "confidence_level": 60, "description": "SMS or app OTP" },
+    { "id": "PASSKEY", "name": "Passkey", "assurance_level": "AL2", "confidence_level": 68, "description": "FIDO2 / WebAuthn step-up" },
+    { "id": "SELFIE", "name": "Selfie-to-auth", "assurance_level": "AL3", "confidence_level": 70, "description": "Biometric selfie" },
+    { "id": "IDV", "name": "Identity verification", "assurance_level": "AL4", "confidence_level": 90, "description": "Document + liveness (IDV)" }
+  ]
+}

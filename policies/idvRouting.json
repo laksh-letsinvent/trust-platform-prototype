@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "description": "IDV vendor routing: route to vendor_1 or vendor_2. Sample strategies: round_robin, percent_split, time_based, geo_based.",
+  "default_vendor": "vendor_1",
+  "strategies": {
+    "round_robin": {
+      "type": "round_robin",
+      "description": "Alternate between vendors per request",
+      "vendors": [
+        "vendor_1",
+        "vendor_2"
+      ],
+      "state_key": "idv_round_robin_index"
+    },
+    "percent_split": {
+      "type": "percent_split",
+      "description": "Send 70% to vendor_1, 30% to vendor_2",
+      "splits": [
+        {
+          "vendor": "vendor_1",
+          "percent": 70
+        },
+        {
+          "vendor": "vendor_2",
+          "percent": 30
+        }
+      ]
+    },
+    "time_based": {
+      "type": "time_based",
+      "description": "vendor_1 in morning (00–12h UTC), vendor_2 afternoon",
+      "rules": [
+        {
+          "vendor": "vendor_1",
+          "hour_start": 0,
+          "hour_end": 12
+        },
+        {
+          "vendor": "vendor_2",
+          "hour_start": 12,
+          "hour_end": 24
+        }
+      ]
+    },
+    "geo_based": {
+      "type": "geo_based",
+      "description": "UK/IE → vendor_1, DE/FR → vendor_2, else default",
+      "rules": [
+        {
+          "vendor": "vendor_1",
+          "geography": [
+            "UK",
+            "IE"
+          ]
+        },
+        {
+          "vendor": "vendor_2",
+          "geography": [
+            "DE",
+            "FR"
+          ]
+        }
+      ]
+    }
+  },
+  "active_strategy": "geo_based"
+}

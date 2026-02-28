@@ -1,0 +1,14 @@
+{
+  "actions": [
+    { "id": "login", "name": "Login", "tier": "Tier1", "required_al": "AL1", "required_confidence": 30 },
+    { "id": "balance_inquiry", "name": "Balance inquiry", "tier": "Tier1", "required_al": "AL1", "required_confidence": 40 },
+    { "id": "view_statements", "name": "View statements", "tier": "Tier1", "required_al": "AL1", "required_confidence": 45 },
+    { "id": "bill_pay", "name": "Bill pay", "tier": "Tier2", "required_al": "AL2", "required_confidence": 55 },
+    { "id": "p2p_send", "name": "P2P / Pay to new person", "tier": "Tier2", "required_al": "AL2", "required_confidence": 60 },
+    { "id": "internal_transfer", "name": "Internal transfer", "tier": "Tier2", "required_al": "AL2", "required_confidence": 65 },
+    { "id": "wire_transfer", "name": "Wire transfer (>10K)", "tier": "Tier3", "required_al": "AL3", "required_confidence": 70 },
+    { "id": "large_transfer", "name": "Transfer > £10K", "tier": "Tier3", "required_al": "AL3", "required_confidence": 75 },
+    { "id": "change_password", "name": "Change password / security", "tier": "Tier3", "required_al": "AL3", "required_confidence": 75 },
+    { "id": "account_recovery", "name": "Account recovery", "tier": "Tier4", "required_al": "AL4", "required_confidence": 90 }
+  ]
+}

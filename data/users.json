@@ -1,0 +1,12 @@
+{
+  "users": [
+    { "customer_id": "Lara", "fraud_score": 15, "geography": "UK" },
+    { "customer_id": "Lenny", "fraud_score": 22, "geography": "UK" },
+    { "customer_id": "Jason", "fraud_score": 28, "geography": "DE" },
+    { "customer_id": "Maxim","fraud_score": 35, "geography": "UK" },
+    { "customer_id": "Maddy","fraud_score": 55, "geography": "DE" },
+    { "customer_id": "Harvey", "fraud_score": 80, "geography": "UK" },
+    { "customer_id": "Hitesh", "fraud_score": 90, "geography": "UK" },
+    { "customer_id": "Nikky", "fraud_score": 40, "geography": "DE" }
+  ]
+}

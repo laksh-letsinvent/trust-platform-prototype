@@ -1,0 +1,70 @@
+{
+  "samples": [
+    {
+      "description": "Balance inquiry – routine retail banking",
+      "request": {
+        "customer_id": "cust_retail_001",
+        "action": "balance_inquiry",
+        "device_id": "dev_abc123"
+      }
+    },
+    {
+      "description": "View statements",
+      "request": {
+        "customer_id": "cust_retail_002",
+        "action": "view_statements",
+        "device_id": "dev_xyz789"
+      }
+    },
+    {
+      "description": "Bill pay",
+      "request": {
+        "customer_id": "cust_retail_003",
+        "action": "bill_pay",
+        "device_id": "dev_trusted_001"
+      }
+    },
+    {
+      "description": "Internal transfer",
+      "request": {
+        "customer_id": "cust_retail_004",
+        "action": "internal_transfer",
+        "device_id": "dev_new_phone"
+      }
+    },
+    {
+      "description": "Wire transfer – higher risk action",
+      "request": {
+        "customer_id": "cust_retail_005",
+        "action": "wire_transfer",
+        "device_id": "dev_abc123"
+      }
+    },
+    {
+      "description": "Zelle / P2P payment",
+      "request": {
+        "customer_id": "cust_retail_006",
+        "action": "p2p_send",
+        "device_id": "dev_xyz789"
+      }
+    },
+    {
+      "description": "Change password / security settings",
+      "request": {
+        "customer_id": "cust_retail_007",
+        "action": "change_password",
+        "device_id": "dev_trusted_001"
+      }
+    },
+    {
+      "description": "New device – first login",
+      "request": {
+        "customer_id": "cust_retail_008",
+        "action": "login",
+        "device_id": "dev_first_time_999"
+      }
+    }
+  ],
+  "baseUrl": "http://localhost:3000",
+  "endpoint": "POST /trust/decision"
+}
