@@ -13,6 +13,8 @@ const policyEngine = require('./policyEngine');
 const idvRouting = require('./idvRouting');
 const velocityEngine = require('./velocityEngine');
 
+const { initAmplitude } = require('./amplitude');
+
 // Sheets is optional — only used for sync
 let sheets = null;
 try { sheets = require('./data/sheets'); } catch (_) {}
@@ -255,6 +257,7 @@ app.get('/status', (req, res) => {
 
 async function start() {
     await cache.connect();
+    initAmplitude();
     app.listen(PORT, () => {
         console.log(`Trust Decision server running at http://localhost:${PORT}`);
         console.log(`Redis cache: ${cache.cacheAvailable ? 'enabled' : 'disabled (no Redis)'}`);

@@ -7,6 +7,7 @@ const cache = require('./cache');
 const store = require('./data/store');
 const velocityEngine = require('./velocityEngine');
 const analytics = require('./analytics');
+const amplitude = require('./amplitude');
 
 /**
  * Generates a human-readable reference ID for actionable decisions.
@@ -156,6 +157,22 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         step_up_type: policyResult.step_up_type || null,
         ruleId: policyResult.ruleId || null,
         reference_id
+    });
+
+    // Send to Amplitude
+    amplitude.trackDecision({
+        customer_id,
+        action,
+        actionTier: context.actionTier,
+        riskLevel: context.riskLevel,
+        decision: policyResult.decision,
+        step_up_type: policyResult.step_up_type || null,
+        ruleId: policyResult.ruleId || null,
+        reference_id,
+        geography: context.geography,
+        fraudScore,
+        deviceScore,
+        effectiveConfidence: context.effectiveConfidence,
     });
 
     return {
