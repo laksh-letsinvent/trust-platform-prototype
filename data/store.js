@@ -93,6 +93,21 @@ async function getActionById(actionId) {
     return Promise.resolve(actions.find(a => a.id === actionId) || null);
 }
 
+/**
+ * Update a user's fraud_score in users.json (persistent).
+ * Sheets path is not implemented — falls back to JSON update only.
+ */
+async function updateUserFraudScore(customerId, newScore) {
+    const filePath = path.join(DATA_DIR, 'users.json');
+    const data = loadJSON('users.json');
+    if (!data || !data.users) return false;
+    const idx = data.users.findIndex(u => u.customer_id === customerId);
+    if (idx === -1) return false;
+    data.users[idx].fraud_score = newScore;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    return true;
+}
+
 module.exports = {
     getUsers,
     getDevices,
@@ -102,6 +117,7 @@ module.exports = {
     getDeviceById,
     getAuthenticatorById,
     getActionById,
+    updateUserFraudScore,
     useSheets,
     loadJSON
 };

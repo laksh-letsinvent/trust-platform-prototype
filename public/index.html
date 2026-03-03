@@ -240,6 +240,56 @@
     .status-dot.active { background:var(--monzo-green); }
     .status-dot.inactive { background:var(--monzo-red); }
     .status-label { font-weight:500; }
+
+    /* ── Step-up journey panel ── */
+    .stepup-journey { border:1px solid var(--monzo-border); border-radius:var(--radius); overflow:hidden; }
+    .stepup-journey-header { padding:.75rem 1rem; background:var(--monzo-orange-bg); border-bottom:1px solid rgba(241,189,118,.25); display:flex; align-items:center; justify-content:space-between; }
+    .stepup-journey-title { font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--monzo-orange); }
+    .stepup-journey-body { padding:1rem; background:var(--monzo-navy-light); }
+    .stepup-journey-body.idv { border-top:1px solid var(--monzo-border); }
+    .stepup-info-row { display:flex; align-items:center; gap:.5rem; font-size:.82rem; margin-bottom:.6rem; }
+    .stepup-info-label { color:var(--text-muted); min-width:100px; font-size:.78rem; }
+    .stepup-info-value { font-weight:600; font-family:'JetBrains Mono',monospace; font-size:.78rem; }
+    .stepup-actions { display:flex; gap:.65rem; margin-top:.85rem; }
+    .btn-success { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
+    .btn-success:hover { background:rgba(75,183,143,.25); }
+    .btn-danger { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
+    .btn-danger:hover { background:rgba(254,75,96,.25); }
+    .stepup-result { margin-top:.85rem; padding:.65rem .85rem; border-radius:var(--radius-sm); font-size:.82rem; font-weight:600; }
+    .stepup-result.allow { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
+    .stepup-result.step_up { background:var(--monzo-orange-bg); color:var(--monzo-orange); border:1px solid rgba(241,189,118,.3); }
+    .stepup-result.deny { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
+    .stepup-result.manual_review { background:var(--monzo-purple-bg); color:var(--monzo-purple); border:1px solid rgba(155,125,220,.3); }
+    .idv-radio-group { display:flex; gap:1rem; margin:.5rem 0; }
+    .idv-radio-group label { display:flex; align-items:center; gap:.4rem; font-size:.82rem; cursor:pointer; }
+    .idv-radio-group input { accent-color:var(--monzo-coral); }
+
+    /* ── Review Queue tab ── */
+    .tab-badge { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:9px; background:var(--monzo-coral); color:#fff; font-size:.65rem; font-weight:700; margin-left:.35rem; vertical-align:middle; }
+    .tab-badge.hidden { display:none; }
+    .review-queue-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:.5rem; }
+    .review-queue-title { font-size:1rem; font-weight:700; margin:0; }
+    .review-case { border:1px solid var(--monzo-border); border-radius:var(--radius); overflow:hidden; margin-bottom:1rem; }
+    .review-case.completed { opacity:.6; }
+    .review-case-header { padding:.75rem 1rem; background:var(--monzo-surface); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+    .review-case-ref { font-family:'JetBrains Mono',monospace; font-size:.8rem; font-weight:700; color:var(--monzo-purple); }
+    .review-case-meta { font-size:.8rem; color:var(--text-muted); }
+    .review-case-body { padding:1rem; background:var(--monzo-navy-light); }
+    .review-signals { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.85rem; }
+    .review-form { display:grid; grid-template-columns:1fr 1fr; gap:.65rem; margin-bottom:.75rem; }
+    @media (max-width:600px) { .review-form { grid-template-columns:1fr; } }
+    .review-form label { font-size:.78rem; }
+    .review-actions { display:flex; gap:.65rem; flex-wrap:wrap; }
+    .btn-approve { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); font-weight:700; }
+    .btn-approve:hover { background:rgba(75,183,143,.25); }
+    .btn-deny { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); font-weight:700; }
+    .btn-deny:hover { background:rgba(254,75,96,.25); }
+    .btn-escalate { background:var(--monzo-purple-bg); color:var(--monzo-purple); border:1px solid rgba(155,125,220,.3); }
+    .btn-escalate:hover { background:rgba(155,125,220,.25); }
+    .review-outcome-badge { display:inline-flex; align-items:center; gap:.4rem; padding:.3rem .75rem; border-radius:20px; font-size:.78rem; font-weight:700; }
+    .review-outcome-badge.APPROVE { background:var(--monzo-green-bg); color:var(--monzo-green); }
+    .review-outcome-badge.DENY { background:var(--monzo-red-bg); color:var(--monzo-red); }
+    .review-outcome-badge.ESCALATE { background:var(--monzo-purple-bg); color:var(--monzo-purple); }
   </style>
 </head>
 <body>
@@ -260,6 +310,7 @@
     <button class="tab-btn active" data-tab="simulator">Decision Simulator</button>
     <button class="tab-btn" data-tab="control">Control Panel</button>
     <button class="tab-btn" data-tab="analytics">Analytics</button>
+    <button class="tab-btn" data-tab="review">Review Queue<span class="tab-badge hidden" id="reviewBadge">0</span></button>
   </nav>
 
   <!-- ══════════════════ TAB 1: DECISION SIMULATOR ══════════════════ -->
@@ -314,6 +365,27 @@
               <span id="outcomeBadge"></span>
             </div>
             <div class="outcome-meta" id="outcomeMeta"></div>
+          </div>
+        </div>
+
+        <!-- Step-Up Journey (appears automatically after a STEP_UP decision) -->
+        <div id="stepUpJourneyContainer" style="display:none;">
+          <div class="stepup-journey">
+            <div class="stepup-journey-header">
+              <span class="stepup-journey-title" id="stepUpJourneyTitle">Step-Up Journey</span>
+              <span style="font-size:.72rem;color:var(--monzo-orange);font-weight:500;">SIMULATOR</span>
+            </div>
+            <div class="stepup-journey-body" id="stepUpJourneyBody">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual Review notice (appears after MANUAL_REVIEW decision) -->
+        <div id="manualReviewNotice" style="display:none;">
+          <div class="card" style="border-color:rgba(155,125,220,.4);background:var(--monzo-purple-bg);">
+            <p style="margin:0;font-size:.85rem;color:var(--monzo-purple);font-weight:600;">⊙ Case queued for manual review</p>
+            <p style="margin:.4rem 0 0;font-size:.8rem;color:var(--text-muted);">Switch to the <strong style="color:var(--monzo-purple);">Review Queue</strong> tab to action this case as an internal analyst.</p>
           </div>
         </div>
       </div>
@@ -556,6 +628,21 @@
     </div>
   </div>
 
+  <!-- ══════════════════ TAB 4: REVIEW QUEUE ══════════════════ -->
+  <div id="tab-review" class="tab-panel">
+    <div class="review-queue-header">
+      <h2 class="review-queue-title">Manual Review Queue</h2>
+      <button class="btn btn-secondary btn-sm" id="btnReviewRefresh">Refresh</button>
+    </div>
+    <div id="reviewQueueList">
+      <div class="empty-state">
+        <div class="empty-icon">⊙</div>
+        <p class="empty-title">No cases yet</p>
+        <p class="empty-sub">MANUAL_REVIEW decisions from the simulator will appear here.</p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Toast notification -->
@@ -602,6 +689,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tabId === 'control' && !tabsInitialized.control) {
       tabsInitialized.control = true;
       loadControlPanel();
+    }
+    if (tabId === 'review') {
+      loadReviewQueue();
     }
     activeTab = tabId;
   });
@@ -746,7 +836,23 @@ function renderOutcome(result) {
   if (result.idv_vendor) {
     html += `<div class="outcome-meta-row"><span class="outcome-meta-label">IDV Vendor</span><span class="outcome-meta-value">${escHtml(result.idv_vendor)} <span style="color:var(--text-muted);font-size:.78rem;">(${escHtml(result.idv_routing?.strategy || '')})</span></span></div>`;
   }
+  if (result.reference_id) {
+    html += `<div class="outcome-meta-row"><span class="outcome-meta-label">Ref</span><span class="outcome-meta-value" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;">${escHtml(result.reference_id)}</span></div>`;
+  }
   meta.innerHTML = html;
+
+  // Show/hide step-up journey or manual review notice
+  const journeyContainer = document.getElementById('stepUpJourneyContainer');
+  const reviewNotice = document.getElementById('manualReviewNotice');
+  journeyContainer.style.display = 'none';
+  reviewNotice.style.display = 'none';
+
+  if (result.decision === 'STEP_UP' && result.reference_id) {
+    renderStepUpJourney(result);
+  } else if (result.decision === 'MANUAL_REVIEW') {
+    reviewNotice.style.display = 'block';
+    refreshReviewBadge();
+  }
 }
 
 function renderTrace(trace) {
@@ -1179,11 +1285,260 @@ function renderAnalytics(data) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Step-Up Journey Panel (Simulator tab)
+// ────────────────────────────────────────────────────────────────────────────
+
+const AL_LABELS = { AL1: 'Passcode / FaceID', AL2: 'Passkey', AL3: 'Selfie', AL4: 'IDV (Identity Verification)' };
+const STEP_UP_TO_AL = { PASSCODE: 'AL1', PASSKEY: 'AL2', SELFIE: 'AL3', IDV: 'AL4' };
+
+function renderStepUpJourney(result) {
+  const container = document.getElementById('stepUpJourneyContainer');
+  const body = document.getElementById('stepUpJourneyBody');
+  const title = document.getElementById('stepUpJourneyTitle');
+  const isIDV = result.step_up_type === 'IDV';
+
+  title.textContent = isIDV ? 'Step-Up Journey — IDV' : `Step-Up Journey — ${result.step_up_type}`;
+  container.style.display = 'block';
+
+  const completedAL = STEP_UP_TO_AL[result.step_up_type] || '';
+
+  if (isIDV) {
+    body.innerHTML = `
+      <div class="stepup-info-row"><span class="stepup-info-label">Vendor</span><span class="stepup-info-value">${escHtml(result.idv_vendor || '—')}</span></div>
+      <div class="stepup-info-row"><span class="stepup-info-label">Session ID</span><span class="stepup-info-value">${escHtml(result.idv_session_id || '—')}</span></div>
+      <div class="stepup-info-row"><span class="stepup-info-label">Reference</span><span class="stepup-info-value">${escHtml(result.reference_id)}</span></div>
+      <p style="margin:.5rem 0;font-size:.78rem;color:var(--text-muted);">Simulate the IDV vendor calling back with a result:</p>
+      <div class="idv-radio-group">
+        <label><input type="radio" name="idvResult" value="PASS" checked> PASS</label>
+        <label><input type="radio" name="idvResult" value="FAIL"> FAIL</label>
+        <label><input type="radio" name="idvResult" value="REVIEW"> REVIEW</label>
+      </div>
+      <div class="stepup-info-row" style="margin-top:.4rem;">
+        <span class="stepup-info-label">New fraud score</span>
+        <input type="number" id="idvFraudScoreOverride" min="0" max="100" value="10" style="width:80px;padding:.3rem .5rem;font-size:.82rem;">
+        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.4rem;">(optional, 0–100)</span>
+      </div>
+      <div class="stepup-actions">
+        <button class="btn btn-primary btn-sm" id="btnFireIDVWebhook">Fire IDV Webhook</button>
+        <button class="btn btn-secondary btn-sm" id="btnPollIDVStatus">Poll Status</button>
+      </div>
+      <div id="stepUpResult" style="display:none;"></div>
+    `;
+    document.getElementById('btnFireIDVWebhook').addEventListener('click', () => fireIDVWebhook(result));
+    document.getElementById('btnPollIDVStatus').addEventListener('click', () => pollStepUpStatus(result.reference_id));
+  } else {
+    body.innerHTML = `
+      <div class="stepup-info-row"><span class="stepup-info-label">Required</span><span class="stepup-info-value">${escHtml(result.step_up_type)} → ${escHtml(completedAL)} (${escHtml(AL_LABELS[completedAL] || '')})</span></div>
+      <div class="stepup-info-row"><span class="stepup-info-label">Reference</span><span class="stepup-info-value">${escHtml(result.reference_id)}</span></div>
+      <p style="margin:.5rem 0;font-size:.78rem;color:var(--text-muted);">Simulate the user completing or failing the auth challenge:</p>
+      <div class="stepup-actions">
+        <button class="btn btn-success btn-sm" id="btnCompleteStepUp">✓ User Completes ${escHtml(result.step_up_type)}</button>
+        <button class="btn btn-danger btn-sm" id="btnAbandonStepUp">✕ User Abandons</button>
+      </div>
+      <div id="stepUpResult" style="display:none;"></div>
+    `;
+    document.getElementById('btnCompleteStepUp').addEventListener('click', () => completeStepUp(result.reference_id, completedAL));
+    document.getElementById('btnAbandonStepUp').addEventListener('click', () => {
+      document.getElementById('stepUpResult').style.display = 'block';
+      document.getElementById('stepUpResult').className = 'stepup-result deny';
+      document.getElementById('stepUpResult').textContent = '✕ User abandoned — session remains pending until it expires.';
+    });
+  }
+}
+
+async function completeStepUp(referenceId, completedAuthLevel) {
+  const resultEl = document.getElementById('stepUpResult');
+  try {
+    const data = await apiFetch('/trust/step-up/complete', {
+      method: 'POST',
+      body: JSON.stringify({ reference_id: referenceId, completed_auth_level: completedAuthLevel })
+    });
+    const cls = data.decision.toLowerCase().replace('_', '_');
+    const labels = { ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
+    resultEl.style.display = 'block';
+    resultEl.className = `stepup-result ${data.decision.toLowerCase()}`;
+    resultEl.innerHTML = `${labels[data.decision] || data.decision}<br><span style="font-weight:400;font-size:.78rem;">${escHtml(data.reason || '')}</span>`;
+    if (data.decision !== 'ALLOW') {
+      resultEl.innerHTML += `<br><span style="font-size:.75rem;opacity:.8;">New ref: ${escHtml(data.new_reference_id || '—')}</span>`;
+    }
+    renderTrace(data.trace);
+    renderSignalPills(data.trace);
+  } catch (err) {
+    resultEl.style.display = 'block';
+    resultEl.className = 'stepup-result deny';
+    resultEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function fireIDVWebhook(result) {
+  const resultEl = document.getElementById('stepUpResult');
+  const idvResult = document.querySelector('input[name="idvResult"]:checked')?.value || 'PASS';
+  const fraudScoreOverride = parseInt(document.getElementById('idvFraudScoreOverride')?.value, 10);
+  try {
+    const data = await apiFetch('/idv/webhook', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: result.idv_session_id,
+        vendor: result.idv_vendor,
+        result: idvResult,
+        fraud_score_update: isNaN(fraudScoreOverride) ? undefined : fraudScoreOverride
+      })
+    });
+    resultEl.style.display = 'block';
+    const cls = data.decision === 'ALLOW' ? 'allow' : data.decision === 'DENY' ? 'deny' : 'step_up';
+    resultEl.className = `stepup-result ${cls}`;
+    resultEl.innerHTML = `IDV: ${escHtml(idvResult)} → Decision: ${escHtml(data.decision || '—')}<br><span style="font-size:.75rem;font-weight:400;">Ref: ${escHtml(data.reference_id || '—')}</span>`;
+    if (idvResult === 'REVIEW') {
+      resultEl.innerHTML += `<br><span style="font-size:.75rem;opacity:.8;">Result pending manual review — see Review Queue tab.</span>`;
+      refreshReviewBadge();
+    }
+  } catch (err) {
+    resultEl.style.display = 'block';
+    resultEl.className = 'stepup-result deny';
+    resultEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function pollStepUpStatus(referenceId) {
+  const resultEl = document.getElementById('stepUpResult');
+  try {
+    const data = await apiFetch(`/trust/step-up/${encodeURIComponent(referenceId)}/status`);
+    resultEl.style.display = 'block';
+    const statusColor = { PENDING: 'step_up', COMPLETED: 'allow', EXPIRED: 'deny', FAILED: 'deny' };
+    resultEl.className = `stepup-result ${statusColor[data.status] || 'step_up'}`;
+    resultEl.innerHTML = `Status: ${escHtml(data.status)}${data.final_decision ? ' → ' + escHtml(data.final_decision) : ''}`;
+  } catch (err) {
+    resultEl.style.display = 'block';
+    resultEl.className = 'stepup-result deny';
+    resultEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tab 4: Review Queue
+// ────────────────────────────────────────────────────────────────────────────
+
+async function loadReviewQueue() {
+  try {
+    const data = await apiFetch('/trust/review/queue');
+    renderReviewQueue(data);
+    updateReviewBadge(data.pending_count || 0);
+  } catch (err) {
+    document.getElementById('reviewQueueList').innerHTML = `<p style="color:var(--monzo-red);font-size:.85rem;">Failed to load queue: ${escHtml(err.message)}</p>`;
+  }
+}
+
+async function refreshReviewBadge() {
+  try {
+    const data = await apiFetch('/trust/review/queue');
+    updateReviewBadge(data.pending_count || 0);
+  } catch (_) {}
+}
+
+function updateReviewBadge(count) {
+  const badge = document.getElementById('reviewBadge');
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function renderReviewQueue(data) {
+  const container = document.getElementById('reviewQueueList');
+  const allCases = [
+    ...(data.pending || []).map(c => ({ ...c, status: 'PENDING' })),
+    ...(data.all_reviews || []).filter(c => c.status !== 'PENDING')
+  ];
+
+  if (allCases.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⊙</div><p class="empty-title">No cases yet</p><p class="empty-sub">MANUAL_REVIEW decisions from the simulator will appear here.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = allCases.map(c => {
+    const isPending = c.status === 'PENDING';
+    const signals = c.signals || {};
+    const signalPills = [
+      signals.fraudScore != null ? `<span class="pill risk-${signals.riskLevel || ''}"">fraud: ${signals.fraudScore} | ${signals.riskLevel || '?'}</span>` : '',
+      signals.deviceScore != null ? `<span class="pill">device: ${signals.deviceScore}</span>` : '',
+      signals.actionTier ? `<span class="pill">${escHtml(signals.actionTier)}</span>` : '',
+      signals.effectiveConfidence != null ? `<span class="pill">conf: ${signals.effectiveConfidence}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const age = c.created_at ? `${Math.round((Date.now() - c.created_at) / 60000)}m ago` : '';
+    const reviewedByHtml = !isPending && c.reviewer_id ? `<span class="review-outcome-badge ${escHtml(c.final_decision || '')}">${escHtml(c.final_decision === 'ALLOW' ? 'APPROVED' : c.final_decision || '?')}</span> by ${escHtml(c.reviewer_id)}${c.notes ? ` — "${escHtml(c.notes)}"` : ''}` : '';
+
+    return `
+    <div class="review-case ${isPending ? '' : 'completed'}" id="case_${escHtml(c.reference_id)}">
+      <div class="review-case-header">
+        <div>
+          <span class="review-case-ref">${escHtml(c.reference_id)}</span>
+          <span class="review-case-meta" style="margin-left:.75rem;">${escHtml(c.customer_id)} · ${escHtml(c.action)} · ${age}</span>
+        </div>
+        ${isPending ? `<span class="badge badge-orange"><span class="badge-dot"></span>Pending</span>` : `<span style="font-size:.78rem;color:var(--text-muted);">${reviewedByHtml}</span>`}
+      </div>
+      <div class="review-case-body">
+        <div class="review-signals">${signalPills || '<span style="color:var(--text-muted);font-size:.78rem;">No signal data</span>'}</div>
+        ${c.reason ? `<p style="margin:0 0 .75rem;font-size:.78rem;color:var(--text-muted);">Rule: ${escHtml(c.rule_id || '?')} — ${escHtml(c.reason)}</p>` : ''}
+        ${isPending ? `
+        <div class="review-form">
+          <div>
+            <label for="reviewer_${escHtml(c.reference_id)}">Reviewer ID</label>
+            <input type="text" id="reviewer_${escHtml(c.reference_id)}" placeholder="analyst-01" value="analyst-01">
+          </div>
+          <div>
+            <label for="override_${escHtml(c.reference_id)}">Fraud Score Override</label>
+            <input type="number" id="override_${escHtml(c.reference_id)}" min="0" max="100" placeholder="optional">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label for="notes_${escHtml(c.reference_id)}">Notes</label>
+            <input type="text" id="notes_${escHtml(c.reference_id)}" placeholder="e.g. Recurring transaction, legitimate customer">
+          </div>
+        </div>
+        <div class="review-actions">
+          <button class="btn btn-approve btn-sm" onclick="submitReview('${escHtml(c.reference_id)}','APPROVE')">✓ Approve</button>
+          <button class="btn btn-deny btn-sm" onclick="submitReview('${escHtml(c.reference_id)}','DENY')">✕ Deny</button>
+          <button class="btn btn-escalate btn-sm" onclick="submitReview('${escHtml(c.reference_id)}','ESCALATE')">↑ Escalate</button>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function submitReview(referenceId, outcome) {
+  const reviewer_id = document.getElementById(`reviewer_${referenceId}`)?.value?.trim();
+  const notes = document.getElementById(`notes_${referenceId}`)?.value?.trim();
+  const overrideVal = document.getElementById(`override_${referenceId}`)?.value;
+  const fraud_score_override = overrideVal !== '' && !isNaN(parseInt(overrideVal, 10)) ? parseInt(overrideVal, 10) : undefined;
+
+  if (!reviewer_id) {
+    showToast('Please enter a Reviewer ID.', 'error');
+    return;
+  }
+
+  try {
+    await apiFetch(`/trust/review/${encodeURIComponent(referenceId)}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ reviewer_id, outcome, notes: notes || undefined, fraud_score_override })
+    });
+    showToast(`Case ${referenceId} ${outcome.toLowerCase()}d`);
+    loadReviewQueue();
+  } catch (err) {
+    showToast(`Review failed: ${err.message}`, 'error');
+  }
+}
+
+document.getElementById('btnReviewRefresh').addEventListener('click', loadReviewQueue);
+
+// ────────────────────────────────────────────────────────────────────────────
 // Init
 // ────────────────────────────────────────────────────────────────────────────
 
 loadStatus();
 populateDropdowns();
+refreshReviewBadge();
 </script>
 </body>
 </html>
