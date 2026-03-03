@@ -13,6 +13,7 @@ const confidenceEngine = require('./confidenceEngine');
 const policyEngine = require('./policyEngine');
 const idvRouting = require('./idvRouting');
 const velocityEngine = require('./velocityEngine');
+const sessionStore = require('./sessionStore');
 
 const { initAmplitude } = require('./amplitude');
 
@@ -241,6 +242,238 @@ app.post('/policies/velocity-toggle', (req, res) => {
         res.json({ ok: true, velocityEnabled: enabled });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── Step-up completion ──────────────────────────────────────────────────────
+
+app.post('/trust/step-up/complete', async (req, res) => {
+    const { reference_id, completed_auth_level } = req.body;
+    if (!reference_id || !completed_auth_level) {
+        return res.status(400).json({ error: 'Missing required fields: reference_id, completed_auth_level' });
+    }
+
+    const session = sessionStore.getSession(reference_id);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found. May have expired or never existed.' });
+    }
+    if (session.status === 'EXPIRED') {
+        return res.status(410).json({ error: 'Session expired. Please request a new decision.' });
+    }
+    if (session.status === 'COMPLETED') {
+        return res.status(409).json({ error: 'Step-up already completed.', final_decision: session.final_decision });
+    }
+    if (session.type !== 'STEP_UP') {
+        return res.status(400).json({ error: `Session type is ${session.type}, not STEP_UP.` });
+    }
+
+    try {
+        const result = await getDecision({
+            customer_id: session.customer_id,
+            action: session.action,
+            device_id: session.device_id,
+            current_auth_level: completed_auth_level
+        });
+
+        sessionStore.updateSession(reference_id, {
+            status: 'COMPLETED',
+            completed_at: Date.now(),
+            final_decision: result.decision,
+        });
+
+        return res.json({
+            decision: result.decision,
+            step_up_type: result.step_up_type,
+            reason: result.reason,
+            original_reference_id: reference_id,
+            new_reference_id: result.reference_id,
+            trace: result.trace,
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Re-evaluation failed.' });
+    }
+});
+
+// ─── Step-up status poll ─────────────────────────────────────────────────────
+
+app.get('/trust/step-up/:reference_id/status', (req, res) => {
+    const session = sessionStore.getSession(req.params.reference_id);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found.' });
+    }
+    return res.json({
+        reference_id: session.reference_id,
+        type: session.type,
+        status: session.status,
+        required_step_up_type: session.required_step_up_type,
+        idv_vendor: session.idv_vendor,
+        idv_session_id: session.idv_session_id,
+        final_decision: session.final_decision,
+        created_at: session.created_at,
+        expires_at: session.expires_at,
+        completed_at: session.completed_at,
+    });
+});
+
+// ─── IDV vendor webhook ───────────────────────────────────────────────────────
+
+app.post('/idv/webhook', async (req, res) => {
+    const { session_id, vendor, result, fraud_score_update } = req.body;
+    if (!session_id || !result) {
+        return res.status(400).json({ error: 'Missing required fields: session_id, result' });
+    }
+
+    const session = sessionStore.getSessionByIdvSessionId(session_id);
+    if (!session) {
+        return res.status(404).json({ error: 'IDV session not found.' });
+    }
+    if (session.status !== 'PENDING') {
+        return res.status(409).json({ error: `Session already in status: ${session.status}` });
+    }
+
+    try {
+        // Update fraud score if vendor provides one
+        if (typeof fraud_score_update === 'number') {
+            const clamped = Math.max(0, Math.min(100, fraud_score_update));
+            // Update persistent store
+            await store.updateUserFraudScore(session.customer_id, clamped);
+            // Bust the Redis cache so next decision picks up the new score
+            await cache.bustFraudScore(session.customer_id);
+        }
+
+        // Determine new auth level based on IDV result
+        const idvOutcomeMap = { PASS: 'AL4', FAIL: null, REVIEW: null };
+        const newAuthLevel = idvOutcomeMap[result] || null;
+
+        if (result === 'PASS' && newAuthLevel) {
+            const decision = await getDecision({
+                customer_id: session.customer_id,
+                action: session.action,
+                device_id: session.device_id,
+                current_auth_level: newAuthLevel
+            });
+            sessionStore.updateSession(session.reference_id, {
+                status: 'COMPLETED',
+                completed_at: Date.now(),
+                final_decision: decision.decision,
+            });
+            return res.json({ ok: true, reference_id: session.reference_id, result, decision: decision.decision });
+        } else {
+            // FAIL or REVIEW — mark as failed/pending review
+            sessionStore.updateSession(session.reference_id, {
+                status: result === 'FAIL' ? 'FAILED' : 'PENDING',
+                completed_at: result === 'FAIL' ? Date.now() : null,
+                final_decision: result === 'FAIL' ? 'DENY' : null,
+            });
+            return res.json({ ok: true, reference_id: session.reference_id, result, decision: result === 'FAIL' ? 'DENY' : 'PENDING_REVIEW' });
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'IDV callback processing failed.' });
+    }
+});
+
+// ─── Manual review queue ──────────────────────────────────────────────────────
+
+app.get('/trust/review/queue', (req, res) => {
+    const pending = sessionStore.getPendingReviews();
+    const all = sessionStore.getAllReviews();
+    return res.json({
+        pending_count: pending.length,
+        pending: pending.map(s => ({
+            reference_id: s.reference_id,
+            customer_id: s.customer_id,
+            action: s.action,
+            device_id: s.device_id,
+            signals: s.original_decision && s.original_decision.trace ? s.original_decision.trace.context : null,
+            rule_id: s.original_decision && s.original_decision.trace && s.original_decision.trace.policy ? s.original_decision.trace.policy.ruleId : null,
+            reason: s.original_decision ? s.original_decision.reason : null,
+            created_at: s.created_at,
+            expires_at: s.expires_at,
+        })),
+        all_reviews: all.map(s => ({
+            reference_id: s.reference_id,
+            status: s.status,
+            customer_id: s.customer_id,
+            action: s.action,
+            final_decision: s.final_decision,
+            reviewer_id: s.reviewer_id,
+            notes: s.notes,
+            created_at: s.created_at,
+            completed_at: s.completed_at,
+        })),
+    });
+});
+
+// ─── Manual review feedback ───────────────────────────────────────────────────
+
+app.post('/trust/review/:reference_id/feedback', async (req, res) => {
+    const { reviewer_id, outcome, notes, fraud_score_override } = req.body;
+    const { reference_id } = req.params;
+
+    if (!reviewer_id || !outcome) {
+        return res.status(400).json({ error: 'Missing required fields: reviewer_id, outcome' });
+    }
+    if (!['APPROVE', 'DENY', 'ESCALATE'].includes(outcome)) {
+        return res.status(400).json({ error: 'outcome must be APPROVE, DENY, or ESCALATE' });
+    }
+
+    const session = sessionStore.getSession(reference_id);
+    if (!session) {
+        return res.status(404).json({ error: 'Review case not found.' });
+    }
+    if (session.type !== 'MANUAL_REVIEW') {
+        return res.status(400).json({ error: `Session type is ${session.type}, not MANUAL_REVIEW.` });
+    }
+    if (session.status !== 'PENDING') {
+        return res.status(409).json({ error: `Case already actioned (status: ${session.status}).`, final_decision: session.final_decision });
+    }
+
+    try {
+        // Apply fraud score override if provided
+        if (typeof fraud_score_override === 'number') {
+            const clamped = Math.max(0, Math.min(100, fraud_score_override));
+            await store.updateUserFraudScore(session.customer_id, clamped);
+            await cache.bustFraudScore(session.customer_id);
+        }
+
+        const final_decision = outcome === 'APPROVE' ? 'ALLOW' : outcome === 'DENY' ? 'DENY' : null;
+        const newStatus = outcome === 'ESCALATE' ? 'PENDING' : 'COMPLETED';
+
+        sessionStore.updateSession(reference_id, {
+            status: newStatus,
+            completed_at: newStatus === 'COMPLETED' ? Date.now() : null,
+            final_decision,
+            reviewer_id,
+            notes: notes || null,
+            fraud_score_override: fraud_score_override ?? null,
+        });
+
+        // Append to reviews.jsonl
+        const reviewEntry = JSON.stringify({
+            timestamp: Date.now(),
+            reference_id,
+            customer_id: session.customer_id,
+            action: session.action,
+            reviewer_id,
+            outcome,
+            notes: notes || null,
+            fraud_score_override: fraud_score_override ?? null,
+            final_decision,
+        });
+        fs.appendFileSync(path.join(__dirname, 'reviews.jsonl'), reviewEntry + '\n', 'utf8');
+
+        return res.json({
+            ok: true,
+            reference_id,
+            outcome,
+            final_decision,
+            reviewed_at: Date.now(),
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Review feedback failed.' });
     }
 });
 

@@ -91,6 +91,28 @@ async function setCachedDeviceScore(deviceId, score) {
     await set(key, score, DEVICE_TTL_SEC);
 }
 
+/**
+ * Bust all cached fraud scores for a customer (all action/device combinations).
+ * Uses Redis SCAN to find and delete keys matching fraud:{customerId}:*
+ * No-op when Redis is unavailable.
+ */
+async function bustFraudScore(customerId) {
+    if (!client || !cacheAvailable) return;
+    try {
+        const pattern = `fraud:${customerId}:*`;
+        let cursor = '0';
+        do {
+            const [nextCursor, keys] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+            cursor = nextCursor;
+            if (keys.length > 0) {
+                await client.del(...keys);
+            }
+        } while (cursor !== '0');
+    } catch (err) {
+        console.warn('Cache bust failed:', err.message);
+    }
+}
+
 async function close() {
     if (client) {
         await client.quit().catch(() => {});
@@ -116,6 +138,7 @@ module.exports = {
     setCachedFraudScore,
     getCachedDeviceScore,
     setCachedDeviceScore,
+    bustFraudScore,
     getClient,
     get cacheAvailable() { return cacheAvailable; }
 };

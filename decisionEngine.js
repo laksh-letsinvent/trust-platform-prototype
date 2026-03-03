@@ -8,6 +8,7 @@ const store = require('./data/store');
 const velocityEngine = require('./velocityEngine');
 const analytics = require('./analytics');
 const amplitude = require('./amplitude');
+const sessionStore = require('./sessionStore');
 
 /**
  * Generates a human-readable reference ID for actionable decisions.
@@ -141,10 +142,14 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
     trace.reference_id = reference_id;
 
     let idvVendor = null;
+    let idv_session_id = null;
     if (policyResult.step_up_type === 'IDV') {
         const resolved = idvRouting.resolveIdvVendor({ geography: context.geography, requestId: `${customer_id}:${action}:${device_id}` });
         idvVendor = resolved;
         trace.idv_routing = resolved;
+        // Generate a stable IDV session ID tied to this reference
+        idv_session_id = `ses_${reference_id}`;
+        trace.idv_session_id = idv_session_id;
     }
 
     // Record for analytics
@@ -158,6 +163,20 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         ruleId: policyResult.ruleId || null,
         reference_id
     });
+
+    // Create session for actionable decisions (enables step-up completion + review feedback)
+    const fullResult = {
+        decision: policyResult.decision,
+        step_up_type: policyResult.step_up_type,
+        reason: policyResult.reason,
+        reference_id,
+        idv_vendor: idvVendor ? idvVendor.vendor : null,
+        idv_session_id,
+        trace
+    };
+    if (reference_id) {
+        sessionStore.createSession(fullResult, { customer_id, action, device_id });
+    }
 
     // Send to Amplitude
     amplitude.trackDecision({
@@ -181,6 +200,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         reason: trace.reason,
         reference_id: trace.reference_id,
         idv_vendor: idvVendor ? idvVendor.vendor : undefined,
+        idv_session_id: idv_session_id || undefined,
         idv_routing: idvVendor ? { vendor: idvVendor.vendor, strategy: idvVendor.strategy, note: idvVendor.note } : undefined,
         trace
     };
