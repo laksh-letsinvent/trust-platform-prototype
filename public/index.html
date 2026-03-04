@@ -1395,7 +1395,7 @@ function renderStepUpJourney(result) {
     document.getElementById('btnFireIDVWebhook').addEventListener('click', () => fireIDVWebhook(result));
     document.getElementById('btnPollIDVStatus').addEventListener('click', () => pollStepUpStatus(result.reference_id));
   } else {
-    document.getElementById('btnCompleteStepUp').addEventListener('click', () => completeStepUp(result.reference_id, completedAL, result));
+    document.getElementById('btnCompleteStepUp').addEventListener('click', () => completeStepUp(result.reference_id, result.step_up_type, result));
     document.getElementById('btnAbandonStepUp').addEventListener('click', () => abandonStepUp());
   }
 }
