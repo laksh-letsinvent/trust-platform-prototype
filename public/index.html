@@ -242,24 +242,51 @@
     .status-label { font-weight:500; }
 
     /* ── Step-up journey panel ── */
-    .stepup-journey { border:1px solid var(--monzo-border); border-radius:var(--radius); overflow:hidden; }
-    .stepup-journey-header { padding:.75rem 1rem; background:var(--monzo-orange-bg); border-bottom:1px solid rgba(241,189,118,.25); display:flex; align-items:center; justify-content:space-between; }
-    .stepup-journey-title { font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--monzo-orange); }
+    .stepup-journey { border:1px solid var(--monzo-border); border-radius:var(--radius); overflow:hidden; transition:border-color .4s; }
+    .stepup-journey.completed { border-color:rgba(75,183,143,.4); }
+    .stepup-journey-header { padding:.75rem 1rem; background:var(--monzo-orange-bg); border-bottom:1px solid rgba(241,189,118,.25); display:flex; align-items:center; justify-content:space-between; transition:background .4s, border-color .4s; }
+    .stepup-journey.completed .stepup-journey-header { background:rgba(75,183,143,.1); border-bottom-color:rgba(75,183,143,.25); }
+    .stepup-journey-title { font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--monzo-orange); transition:color .4s; }
+    .stepup-journey.completed .stepup-journey-title { color:var(--monzo-green); }
     .stepup-journey-body { padding:1rem; background:var(--monzo-navy-light); }
-    .stepup-journey-body.idv { border-top:1px solid var(--monzo-border); }
+
+    /* Staged steps */
+    .stepup-stages { display:flex; flex-direction:column; gap:0; }
+    .stepup-stage { display:flex; align-items:flex-start; gap:.75rem; position:relative; padding-bottom:1rem; }
+    .stepup-stage:not(:last-child)::after { content:''; position:absolute; left:.68rem; top:1.6rem; bottom:.1rem; width:1px; background:var(--monzo-border); }
+    .stepup-stage.done:not(:last-child)::after { background:rgba(75,183,143,.4); }
+    .stepup-stage-num { width:1.4rem; height:1.4rem; border-radius:50%; background:var(--monzo-border); display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:800; flex-shrink:0; margin-top:.1rem; color:var(--text-muted); transition:background .3s, color .3s; }
+    .stepup-stage-num.done { background:rgba(75,183,143,.2); color:var(--monzo-green); }
+    .stepup-stage-num.active { background:var(--monzo-orange); color:#fff; }
+    .stepup-stage-num.denied { background:rgba(254,75,96,.2); color:var(--monzo-red); }
+    .stepup-stage-label { font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:var(--text-primary); }
+    .stepup-stage.done .stepup-stage-label { color:var(--text-muted); }
+    .stepup-stage-detail { font-size:.75rem; color:var(--text-muted); }
+    .stepup-stage-detail .stepup-info-row { margin-bottom:.3rem; }
+
     .stepup-info-row { display:flex; align-items:center; gap:.5rem; font-size:.82rem; margin-bottom:.6rem; }
-    .stepup-info-label { color:var(--text-muted); min-width:100px; font-size:.78rem; }
-    .stepup-info-value { font-weight:600; font-family:'JetBrains Mono',monospace; font-size:.78rem; }
-    .stepup-actions { display:flex; gap:.65rem; margin-top:.85rem; }
+    .stepup-info-label { color:var(--text-muted); min-width:90px; font-size:.75rem; }
+    .stepup-info-value { font-weight:600; font-family:'JetBrains Mono',monospace; font-size:.75rem; }
+    .stepup-actions { display:flex; gap:.65rem; margin-top:.75rem; }
     .btn-success { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
     .btn-success:hover { background:rgba(75,183,143,.25); }
     .btn-danger { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
     .btn-danger:hover { background:rgba(254,75,96,.25); }
-    .stepup-result { margin-top:.85rem; padding:.65rem .85rem; border-radius:var(--radius-sm); font-size:.82rem; font-weight:600; }
-    .stepup-result.allow { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
-    .stepup-result.step_up { background:var(--monzo-orange-bg); color:var(--monzo-orange); border:1px solid rgba(241,189,118,.3); }
-    .stepup-result.deny { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
-    .stepup-result.manual_review { background:var(--monzo-purple-bg); color:var(--monzo-purple); border:1px solid rgba(155,125,220,.3); }
+
+    /* Final outcome banner inside journey */
+    .stepup-final-banner { padding:.85rem 1rem; border-radius:var(--radius-sm); text-align:center; margin-top:.4rem; animation:fadeIn .35s ease; }
+    .stepup-final-banner.allow { background:rgba(75,183,143,.1); border:1px solid rgba(75,183,143,.35); }
+    .stepup-final-banner.deny  { background:rgba(254,75,96,.1);  border:1px solid rgba(254,75,96,.35); }
+    .stepup-final-banner.step_up { background:var(--monzo-orange-bg); border:1px solid rgba(241,189,118,.3); }
+    .stepup-final-banner.manual_review { background:var(--monzo-purple-bg); border:1px solid rgba(155,125,220,.3); }
+    .stepup-final-icon { font-size:1.6rem; line-height:1; margin-bottom:.3rem; }
+    .stepup-final-title { font-weight:700; font-size:1rem; }
+    .stepup-final-banner.allow .stepup-final-title { color:var(--monzo-green); }
+    .stepup-final-banner.deny  .stepup-final-title { color:var(--monzo-red); }
+    .stepup-final-banner.step_up .stepup-final-title { color:var(--monzo-orange); }
+    .stepup-final-banner.manual_review .stepup-final-title { color:var(--monzo-purple); }
+    .stepup-final-sub { font-size:.75rem; color:var(--text-muted); margin-top:.25rem; }
+
     .idv-radio-group { display:flex; gap:1rem; margin:.5rem 0; }
     .idv-radio-group label { display:flex; align-items:center; gap:.4rem; font-size:.82rem; cursor:pointer; }
     .idv-radio-group input { accent-color:var(--monzo-coral); }
@@ -1295,83 +1322,127 @@ function renderStepUpJourney(result) {
   const container = document.getElementById('stepUpJourneyContainer');
   const body = document.getElementById('stepUpJourneyBody');
   const title = document.getElementById('stepUpJourneyTitle');
+  const journeyEl = container.querySelector('.stepup-journey');
   const isIDV = result.step_up_type === 'IDV';
+  const completedAL = STEP_UP_TO_AL[result.step_up_type] || '';
 
+  // Reset completed state
+  journeyEl.classList.remove('completed');
   title.textContent = isIDV ? 'Step-Up Journey — IDV' : `Step-Up Journey — ${result.step_up_type}`;
   container.style.display = 'block';
 
-  const completedAL = STEP_UP_TO_AL[result.step_up_type] || '';
+  // ── Stage 1: Decision issued (always "done" by the time we show this) ──
+  const stage1Detail = `
+    <div class="stepup-info-row"><span class="stepup-info-label">Ref</span><span class="stepup-info-value">${escHtml(result.reference_id)}</span></div>
+    ${isIDV ? `<div class="stepup-info-row"><span class="stepup-info-label">Vendor</span><span class="stepup-info-value">${escHtml(result.idv_vendor || '—')}</span></div>
+    <div class="stepup-info-row"><span class="stepup-info-label">Session</span><span class="stepup-info-value">${escHtml(result.idv_session_id || '—')}</span></div>` : `<div class="stepup-info-row"><span class="stepup-info-label">Requires</span><span class="stepup-info-value">${escHtml(result.step_up_type)} (${escHtml(AL_LABELS[completedAL] || '')})</span></div>`}
+  `;
+
+  // ── Stage 2: Customer action (active) ──
+  const stage2Label = isIDV
+    ? 'Customer submits identity documents'
+    : `Customer completes ${result.step_up_type} challenge`;
+
+  const stage2Controls = isIDV ? `
+    <p style="margin:.4rem 0 .5rem;font-size:.76rem;color:var(--text-muted);">Simulate vendor callback:</p>
+    <div class="idv-radio-group">
+      <label><input type="radio" name="idvResult" value="PASS" checked> PASS</label>
+      <label><input type="radio" name="idvResult" value="FAIL"> FAIL</label>
+      <label><input type="radio" name="idvResult" value="REVIEW"> REVIEW</label>
+    </div>
+    <div class="stepup-info-row" style="margin-top:.3rem;">
+      <span class="stepup-info-label">New fraud score</span>
+      <input type="number" id="idvFraudScoreOverride" min="0" max="100" value="10" style="width:72px;padding:.25rem .4rem;font-size:.8rem;background:var(--monzo-navy);border:1px solid var(--monzo-border);border-radius:4px;color:var(--text-primary);">
+      <span style="font-size:.72rem;color:var(--text-muted);margin-left:.3rem;">(0–100)</span>
+    </div>
+    <div class="stepup-actions">
+      <button class="btn btn-primary btn-sm" id="btnFireIDVWebhook">Fire IDV Webhook</button>
+      <button class="btn btn-secondary btn-sm" id="btnPollIDVStatus">Poll Status</button>
+    </div>
+  ` : `
+    <div class="stepup-actions">
+      <button class="btn btn-success btn-sm" id="btnCompleteStepUp">✓ Customer Completes</button>
+      <button class="btn btn-danger btn-sm" id="btnAbandonStepUp">✕ Customer Abandons</button>
+    </div>
+  `;
+
+  body.innerHTML = `
+    <div class="stepup-stages">
+      <div class="stepup-stage done" id="stepUpStage1">
+        <div class="stepup-stage-num done">✓</div>
+        <div class="stepup-stage-content">
+          <div class="stepup-stage-label">Decision issued — ${escHtml(result.step_up_type)} required</div>
+          <div class="stepup-stage-detail">${stage1Detail}</div>
+        </div>
+      </div>
+      <div class="stepup-stage active" id="stepUpStage2">
+        <div class="stepup-stage-num active">2</div>
+        <div class="stepup-stage-content">
+          <div class="stepup-stage-label">${escHtml(stage2Label)}</div>
+          <div id="stepUpStage2Controls">${stage2Controls}</div>
+        </div>
+      </div>
+      <div class="stepup-stage" id="stepUpStage3">
+        <div class="stepup-stage-num">3</div>
+        <div class="stepup-stage-content">
+          <div class="stepup-stage-label" style="color:var(--text-muted);">Final access decision</div>
+        </div>
+      </div>
+    </div>
+  `;
 
   if (isIDV) {
-    body.innerHTML = `
-      <div class="stepup-info-row"><span class="stepup-info-label">Vendor</span><span class="stepup-info-value">${escHtml(result.idv_vendor || '—')}</span></div>
-      <div class="stepup-info-row"><span class="stepup-info-label">Session ID</span><span class="stepup-info-value">${escHtml(result.idv_session_id || '—')}</span></div>
-      <div class="stepup-info-row"><span class="stepup-info-label">Reference</span><span class="stepup-info-value">${escHtml(result.reference_id)}</span></div>
-      <p style="margin:.5rem 0;font-size:.78rem;color:var(--text-muted);">Simulate the IDV vendor calling back with a result:</p>
-      <div class="idv-radio-group">
-        <label><input type="radio" name="idvResult" value="PASS" checked> PASS</label>
-        <label><input type="radio" name="idvResult" value="FAIL"> FAIL</label>
-        <label><input type="radio" name="idvResult" value="REVIEW"> REVIEW</label>
-      </div>
-      <div class="stepup-info-row" style="margin-top:.4rem;">
-        <span class="stepup-info-label">New fraud score</span>
-        <input type="number" id="idvFraudScoreOverride" min="0" max="100" value="10" style="width:80px;padding:.3rem .5rem;font-size:.82rem;">
-        <span style="font-size:.75rem;color:var(--text-muted);margin-left:.4rem;">(optional, 0–100)</span>
-      </div>
-      <div class="stepup-actions">
-        <button class="btn btn-primary btn-sm" id="btnFireIDVWebhook">Fire IDV Webhook</button>
-        <button class="btn btn-secondary btn-sm" id="btnPollIDVStatus">Poll Status</button>
-      </div>
-      <div id="stepUpResult" style="display:none;"></div>
-    `;
     document.getElementById('btnFireIDVWebhook').addEventListener('click', () => fireIDVWebhook(result));
     document.getElementById('btnPollIDVStatus').addEventListener('click', () => pollStepUpStatus(result.reference_id));
   } else {
-    body.innerHTML = `
-      <div class="stepup-info-row"><span class="stepup-info-label">Required</span><span class="stepup-info-value">${escHtml(result.step_up_type)} → ${escHtml(completedAL)} (${escHtml(AL_LABELS[completedAL] || '')})</span></div>
-      <div class="stepup-info-row"><span class="stepup-info-label">Reference</span><span class="stepup-info-value">${escHtml(result.reference_id)}</span></div>
-      <p style="margin:.5rem 0;font-size:.78rem;color:var(--text-muted);">Simulate the user completing or failing the auth challenge:</p>
-      <div class="stepup-actions">
-        <button class="btn btn-success btn-sm" id="btnCompleteStepUp">✓ User Completes ${escHtml(result.step_up_type)}</button>
-        <button class="btn btn-danger btn-sm" id="btnAbandonStepUp">✕ User Abandons</button>
-      </div>
-      <div id="stepUpResult" style="display:none;"></div>
-    `;
-    document.getElementById('btnCompleteStepUp').addEventListener('click', () => completeStepUp(result.reference_id, completedAL));
-    document.getElementById('btnAbandonStepUp').addEventListener('click', () => {
-      document.getElementById('stepUpResult').style.display = 'block';
-      document.getElementById('stepUpResult').className = 'stepup-result deny';
-      document.getElementById('stepUpResult').textContent = '✕ User abandoned — session remains pending until it expires.';
-    });
+    document.getElementById('btnCompleteStepUp').addEventListener('click', () => completeStepUp(result.reference_id, result.step_up_type, result));
+    document.getElementById('btnAbandonStepUp').addEventListener('click', () => abandonStepUp());
   }
 }
 
-async function completeStepUp(referenceId, completedAuthLevel) {
-  const resultEl = document.getElementById('stepUpResult');
+async function completeStepUp(referenceId, completedAuthLevel, originalResult) {
+  const btn = document.getElementById('btnCompleteStepUp');
+  if (btn) btn.disabled = true;
   try {
     const data = await apiFetch('/trust/step-up/complete', {
       method: 'POST',
       body: JSON.stringify({ reference_id: referenceId, completed_auth_level: completedAuthLevel })
     });
-    const cls = data.decision.toLowerCase().replace('_', '_');
-    const labels = { ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
-    resultEl.style.display = 'block';
-    resultEl.className = `stepup-result ${data.decision.toLowerCase()}`;
-    resultEl.innerHTML = `${labels[data.decision] || data.decision}<br><span style="font-weight:400;font-size:.78rem;">${escHtml(data.reason || '')}</span>`;
-    if (data.decision !== 'ALLOW') {
-      resultEl.innerHTML += `<br><span style="font-size:.75rem;opacity:.8;">New ref: ${escHtml(data.new_reference_id || '—')}</span>`;
-    }
-    renderTrace(data.trace);
-    renderSignalPills(data.trace);
+    renderFinalOutcome(data, originalResult);
+    if (data.trace) { renderTrace(data.trace); renderSignalPills(data.trace); }
   } catch (err) {
-    resultEl.style.display = 'block';
-    resultEl.className = 'stepup-result deny';
-    resultEl.textContent = `Error: ${err.message}`;
+    renderJourneyError(err.message);
+  }
+}
+
+function abandonStepUp() {
+  const stage2 = document.getElementById('stepUpStage2');
+  const stage3 = document.getElementById('stepUpStage3');
+  if (stage2) {
+    stage2.querySelector('.stepup-stage-num').className = 'stepup-stage-num denied';
+    stage2.querySelector('.stepup-stage-num').textContent = '✕';
+    stage2.className = 'stepup-stage done';
+    const ctrl = document.getElementById('stepUpStage2Controls');
+    if (ctrl) ctrl.innerHTML = '<p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0;">Customer abandoned the challenge.</p>';
+  }
+  if (stage3) {
+    stage3.querySelector('.stepup-stage-num').className = 'stepup-stage-num denied';
+    stage3.querySelector('.stepup-stage-num').textContent = '✕';
+    stage3.className = 'stepup-stage active';
+    stage3.querySelector('.stepup-stage-label').style.color = 'var(--monzo-red)';
+    stage3.querySelector('.stepup-stage-label').textContent = 'Session abandoned';
+    stage3.querySelector('.stepup-stage-content').insertAdjacentHTML('beforeend',
+      `<div class="stepup-final-banner deny">
+        <div class="stepup-final-icon">🚫</div>
+        <div class="stepup-final-title">Session Abandoned</div>
+        <div class="stepup-final-sub">The session remains open until it expires. Customer can retry.</div>
+      </div>`);
   }
 }
 
 async function fireIDVWebhook(result) {
-  const resultEl = document.getElementById('stepUpResult');
+  const btn = document.getElementById('btnFireIDVWebhook');
+  if (btn) btn.disabled = true;
   const idvResult = document.querySelector('input[name="idvResult"]:checked')?.value || 'PASS';
   const fraudScoreOverride = parseInt(document.getElementById('idvFraudScoreOverride')?.value, 10);
   try {
@@ -1384,33 +1455,105 @@ async function fireIDVWebhook(result) {
         fraud_score_update: isNaN(fraudScoreOverride) ? undefined : fraudScoreOverride
       })
     });
-    resultEl.style.display = 'block';
-    const cls = data.decision === 'ALLOW' ? 'allow' : data.decision === 'DENY' ? 'deny' : 'step_up';
-    resultEl.className = `stepup-result ${cls}`;
-    resultEl.innerHTML = `IDV: ${escHtml(idvResult)} → Decision: ${escHtml(data.decision || '—')}<br><span style="font-size:.75rem;font-weight:400;">Ref: ${escHtml(data.reference_id || '—')}</span>`;
     if (idvResult === 'REVIEW') {
-      resultEl.innerHTML += `<br><span style="font-size:.75rem;opacity:.8;">Result pending manual review — see Review Queue tab.</span>`;
+      // REVIEW — queue for manual review, show purple banner
+      renderFinalOutcome({ decision: 'MANUAL_REVIEW', reason: 'IDV result flagged for manual review. See Review Queue tab.' }, result);
       refreshReviewBadge();
+    } else {
+      renderFinalOutcome(data, result);
     }
+    if (data.trace) { renderTrace(data.trace); renderSignalPills(data.trace); }
   } catch (err) {
-    resultEl.style.display = 'block';
-    resultEl.className = 'stepup-result deny';
-    resultEl.textContent = `Error: ${err.message}`;
+    if (btn) btn.disabled = false;
+    renderJourneyError(err.message);
   }
 }
 
 async function pollStepUpStatus(referenceId) {
-  const resultEl = document.getElementById('stepUpResult');
   try {
     const data = await apiFetch(`/trust/step-up/${encodeURIComponent(referenceId)}/status`);
-    resultEl.style.display = 'block';
-    const statusColor = { PENDING: 'step_up', COMPLETED: 'allow', EXPIRED: 'deny', FAILED: 'deny' };
-    resultEl.className = `stepup-result ${statusColor[data.status] || 'step_up'}`;
-    resultEl.innerHTML = `Status: ${escHtml(data.status)}${data.final_decision ? ' → ' + escHtml(data.final_decision) : ''}`;
+    if (data.status === 'COMPLETED' && data.final_decision) {
+      renderFinalOutcome({ decision: data.final_decision, reason: `Session completed (polled)` }, { reference_id: referenceId });
+    } else {
+      showToast(`Status: ${data.status}${data.final_decision ? ' → ' + data.final_decision : ' (still pending)'}`, 'info');
+    }
   } catch (err) {
-    resultEl.style.display = 'block';
-    resultEl.className = 'stepup-result deny';
-    resultEl.textContent = `Error: ${err.message}`;
+    renderJourneyError(err.message);
+  }
+}
+
+// ── Shared outcome helpers ──────────────────────────────────────────────────
+
+function renderFinalOutcome(finalData, originalResult) {
+  const decisionLabels  = { ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
+  const decisionIcons   = { ALLOW: '✅', DENY: '🚫', STEP_UP: '🔐', MANUAL_REVIEW: '🔍' };
+  const decisionTitles  = { ALLOW: 'Access Granted', DENY: 'Access Denied', STEP_UP: 'Further Step-Up Required', MANUAL_REVIEW: 'Sent to Review Queue' };
+  const dec = finalData.decision;
+  const cls = (dec || '').toLowerCase().replace('_', '_');
+
+  // 1. Update the main DECISION OUTCOME badge
+  const badge = document.getElementById('outcomeBadge');
+  if (badge) {
+    badge.className = `outcome-badge ${dec}`;
+    badge.textContent = decisionLabels[dec] || dec;
+    badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = '';
+  }
+  // Update outcome meta reason
+  const meta = document.getElementById('outcomeMeta');
+  if (meta && originalResult) {
+    const authMethod = originalResult.step_up_type || '';
+    const ref = originalResult.reference_id || '';
+    meta.innerHTML = `
+      <div class="outcome-meta-row"><span class="outcome-meta-label">Result</span><span class="outcome-meta-value" style="font-size:.82rem;color:var(--text-muted);">${escHtml(finalData.reason || decisionTitles[dec] || dec)}</span></div>
+      ${authMethod ? `<div class="outcome-meta-row"><span class="outcome-meta-label">Auth method</span><span class="outcome-meta-value">${escHtml(authMethod)}</span></div>` : ''}
+      ${ref ? `<div class="outcome-meta-row"><span class="outcome-meta-label">Ref</span><span class="outcome-meta-value" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;">${escHtml(ref)}</span></div>` : ''}
+    `;
+  }
+
+  // 2. Mark stage 2 as done, disable its controls
+  const stage2 = document.getElementById('stepUpStage2');
+  if (stage2) {
+    const numEl = stage2.querySelector('.stepup-stage-num');
+    numEl.className = dec === 'ALLOW' ? 'stepup-stage-num done' : 'stepup-stage-num denied';
+    numEl.textContent = dec === 'ALLOW' ? '✓' : '✕';
+    stage2.className = 'stepup-stage done';
+    const ctrl = document.getElementById('stepUpStage2Controls');
+    if (ctrl) ctrl.innerHTML = `<p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0;">${dec === 'ALLOW' ? 'Authentication completed successfully.' : 'Authentication challenge processed.'}</p>`;
+  }
+
+  // 3. Reveal stage 3 with final outcome banner
+  const stage3 = document.getElementById('stepUpStage3');
+  if (stage3) {
+    const numEl = stage3.querySelector('.stepup-stage-num');
+    numEl.className = dec === 'ALLOW' ? 'stepup-stage-num done' : dec === 'DENY' ? 'stepup-stage-num denied' : 'stepup-stage-num active';
+    numEl.textContent = dec === 'ALLOW' ? '✓' : dec === 'DENY' ? '✕' : '!';
+    stage3.className = 'stepup-stage active';
+    const labelEl = stage3.querySelector('.stepup-stage-label');
+    if (labelEl) { labelEl.textContent = decisionTitles[dec] || 'Final decision'; labelEl.style.color = ''; }
+    stage3.querySelector('.stepup-stage-content').insertAdjacentHTML('beforeend', `
+      <div class="stepup-final-banner ${cls}">
+        <div class="stepup-final-icon">${decisionIcons[dec] || '⊙'}</div>
+        <div class="stepup-final-title">${escHtml(decisionTitles[dec] || dec)}</div>
+        <div class="stepup-final-sub">${escHtml(finalData.reason || '')}</div>
+        ${dec === 'MANUAL_REVIEW' ? '<div class="stepup-final-sub" style="margin-top:.3rem;">Check the <strong>Review Queue</strong> tab for this case.</div>' : ''}
+      </div>
+    `);
+  }
+
+  // 4. Turn the journey panel header green on ALLOW
+  const journeyEl = document.querySelector('.stepup-journey');
+  const titleEl = document.getElementById('stepUpJourneyTitle');
+  if (journeyEl && dec === 'ALLOW') {
+    journeyEl.classList.add('completed');
+    titleEl.textContent = 'Authentication Complete';
+  }
+}
+
+function renderJourneyError(msg) {
+  const stage3 = document.getElementById('stepUpStage3');
+  if (stage3) {
+    stage3.querySelector('.stepup-stage-content').insertAdjacentHTML('beforeend',
+      `<div class="stepup-final-banner deny"><div class="stepup-final-title">Error</div><div class="stepup-final-sub">${escHtml(msg)}</div></div>`);
   }
 }
 
