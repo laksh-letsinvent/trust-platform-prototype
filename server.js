@@ -273,7 +273,7 @@ app.post('/trust/step-up/complete', async (req, res) => {
             action: session.action,
             device_id: session.device_id,
             current_auth_level: completed_auth_level
-        });
+        }, { triggered_by: 'step_up_complete', original_reference_id: reference_id });
 
         sessionStore.updateSession(reference_id, {
             status: 'COMPLETED',
@@ -352,7 +352,7 @@ app.post('/idv/webhook', async (req, res) => {
                 action: session.action,
                 device_id: session.device_id,
                 current_auth_level: newAuthLevel
-            });
+            }, { triggered_by: 'idv_webhook', original_reference_id: session.reference_id });
             sessionStore.updateSession(session.reference_id, {
                 status: 'COMPLETED',
                 completed_at: Date.now(),
@@ -449,6 +449,23 @@ app.post('/trust/review/:reference_id/feedback', async (req, res) => {
             notes: notes || null,
             fraud_score_override: fraud_score_override ?? null,
         });
+
+        // Record the review outcome to analytics so allowBreakdown tracks manual-review ALLOWs
+        if (outcome === 'APPROVE' || outcome === 'DENY') {
+            const origTrace = session.original_decision && session.original_decision.trace;
+            analytics.record({
+                customer_id: session.customer_id,
+                action: session.action,
+                actionTier: origTrace && origTrace.context ? origTrace.context.actionTier : null,
+                riskLevel: origTrace && origTrace.context ? origTrace.context.riskLevel : null,
+                decision: final_decision,
+                step_up_type: null,
+                ruleId: origTrace && origTrace.policy ? origTrace.policy.ruleId : null,
+                reference_id: null,
+                triggered_by: outcome === 'APPROVE' ? 'manual_review_approved' : 'manual_review_denied',
+                original_reference_id: reference_id
+            });
+        }
 
         // Append to reviews.jsonl
         const reviewEntry = JSON.stringify({

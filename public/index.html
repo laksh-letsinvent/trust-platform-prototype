@@ -619,6 +619,9 @@
         <div class="metric-label">Allow</div>
         <div class="metric-count" id="metAllow">—</div>
         <div class="metric-pct" id="metAllowPct">0% of decisions</div>
+        <div id="allowBreakdownRow" style="display:none;margin-top:.5rem;font-size:.72rem;color:var(--text-muted);line-height:1.6;">
+          <span id="allowBreakdownText"></span>
+        </div>
       </div>
       <div class="metric-card step_up">
         <div class="metric-label">Step Up</div>
@@ -1259,11 +1262,26 @@ document.getElementById('btnAnalyticsClear').addEventListener('click', () => {
 });
 
 function renderAnalytics(data) {
-  const { total = 0, decisionCounts = {}, decisionPct = {}, stepUpCounts = {}, perAction = {}, perRiskLevel = {}, ruleCounts = {} } = data;
+  const { total = 0, decisionCounts = {}, decisionPct = {}, allowBreakdown = {}, stepUpCounts = {}, perAction = {}, perRiskLevel = {}, ruleCounts = {} } = data;
 
   // Metric cards
   document.getElementById('metAllow').textContent = decisionCounts.ALLOW ?? 0;
   document.getElementById('metAllowPct').textContent = `${decisionPct.ALLOW ?? 0}% of decisions`;
+
+  // ALLOW breakdown sub-row — only shown when at least one non-direct ALLOW exists
+  const nonDirect = (allowBreakdown.after_step_up || 0) + (allowBreakdown.after_idv || 0) + (allowBreakdown.after_manual_review || 0);
+  const breakdownRow = document.getElementById('allowBreakdownRow');
+  if (nonDirect > 0) {
+    const parts = [];
+    if (allowBreakdown.direct > 0)              parts.push(`${allowBreakdown.direct} direct`);
+    if (allowBreakdown.after_step_up > 0)       parts.push(`${allowBreakdown.after_step_up} after step-up`);
+    if (allowBreakdown.after_idv > 0)           parts.push(`${allowBreakdown.after_idv} after IDV`);
+    if (allowBreakdown.after_manual_review > 0) parts.push(`${allowBreakdown.after_manual_review} after review`);
+    document.getElementById('allowBreakdownText').textContent = '↳ ' + parts.join(' · ');
+    breakdownRow.style.display = '';
+  } else {
+    breakdownRow.style.display = 'none';
+  }
   document.getElementById('metStepUp').textContent = decisionCounts.STEP_UP ?? 0;
   document.getElementById('metStepUpPct').textContent = `${decisionPct.STEP_UP ?? 0}% of decisions`;
   document.getElementById('metDeny').textContent = decisionCounts.DENY ?? 0;

@@ -28,7 +28,7 @@ function generateRef(prefix, customerId, action) {
  * Runs the full trust decision pipeline.
  * Request: customer_id, action, device_id, current_auth_level (optional).
  */
-async function getDecision({ customer_id, action, device_id, current_auth_level }) {
+async function getDecision({ customer_id, action, device_id, current_auth_level }, analyticsExtra = {}) {
     const trace = {
         input: { customer_id, action, device_id, current_auth_level: current_auth_level ?? null },
         data_lookup: {},
@@ -161,7 +161,8 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         decision: policyResult.decision,
         step_up_type: policyResult.step_up_type || null,
         ruleId: policyResult.ruleId || null,
-        reference_id
+        reference_id,
+        ...analyticsExtra
     });
 
     // Create session for actionable decisions (enables step-up completion + review feedback)

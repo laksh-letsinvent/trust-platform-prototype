@@ -14,7 +14,8 @@ const ringBuffer = [];
 
 /**
  * Record a completed decision.
- * @param {{ customer_id, action, actionTier, riskLevel, decision, step_up_type, ruleId, reference_id }} entry
+ * @param {{ customer_id, action, actionTier, riskLevel, decision, step_up_type, ruleId, reference_id, triggered_by?, original_reference_id? }} entry
+ * triggered_by: null for direct decisions; "step_up_complete" | "idv_webhook" | "manual_review_approved" | "manual_review_denied" for post-challenge outcomes
  */
 function record(entry) {
     if (ringBuffer.length >= BUFFER_SIZE) ringBuffer.shift();
@@ -27,7 +28,9 @@ function record(entry) {
         decision: entry.decision || null,
         step_up_type: entry.step_up_type || null,
         ruleId: entry.ruleId || null,
-        reference_id: entry.reference_id || null
+        reference_id: entry.reference_id || null,
+        triggered_by: entry.triggered_by || null,
+        original_reference_id: entry.original_reference_id || null
     };
     ringBuffer.push(row);
     // Persist to JSONL file — survives server restarts
@@ -46,6 +49,7 @@ function getStats(filterCustomerId = null) {
 
     const total = entries.length;
     const decisionCounts = { ALLOW: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
+    const allowBreakdown = { direct: 0, after_step_up: 0, after_idv: 0, after_manual_review: 0 };
     const stepUpCounts = {};
     const perAction = {};
     const perRiskLevel = {};
@@ -56,6 +60,14 @@ function getStats(filterCustomerId = null) {
     for (const e of entries) {
         const d = e.decision;
         if (d && decisionCounts.hasOwnProperty(d)) decisionCounts[d]++;
+
+        // ALLOW breakdown: direct vs. post-challenge
+        if (d === 'ALLOW') {
+            if      (e.triggered_by === 'step_up_complete')       allowBreakdown.after_step_up++;
+            else if (e.triggered_by === 'idv_webhook')             allowBreakdown.after_idv++;
+            else if (e.triggered_by === 'manual_review_approved') allowBreakdown.after_manual_review++;
+            else                                                   allowBreakdown.direct++;
+        }
 
         if (e.step_up_type) {
             stepUpCounts[e.step_up_type] = (stepUpCounts[e.step_up_type] || 0) + 1;
@@ -95,6 +107,7 @@ function getStats(filterCustomerId = null) {
         filterCustomerId: filterCustomerId || null,
         decisionCounts,
         decisionPct,
+        allowBreakdown,
         stepUpCounts,
         perAction,
         perRiskLevel,
