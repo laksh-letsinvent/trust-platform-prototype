@@ -317,6 +317,24 @@
     .review-outcome-badge.APPROVE { background:var(--monzo-green-bg); color:var(--monzo-green); }
     .review-outcome-badge.DENY { background:var(--monzo-red-bg); color:var(--monzo-red); }
     .review-outcome-badge.ESCALATE { background:var(--monzo-purple-bg); color:var(--monzo-purple); }
+
+    /* ── Light theme overrides (accent colours intentionally unchanged for brand consistency) ── */
+    [data-theme="light"] {
+      --monzo-navy: #f0f4f8;
+      --monzo-navy-light: #ffffff;
+      --monzo-surface: #f8fafc;
+      --monzo-border: #dde3ea;
+      --text: #0f1f2e;
+      --text-muted: #5a7290;
+      --shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    [data-theme="light"] select,
+    [data-theme="light"] input[type="text"],
+    [data-theme="light"] input[type="number"] { background:var(--monzo-navy-light); color:var(--text); }
+    [data-theme="light"] select option { background:var(--monzo-navy-light); color:var(--text); }
+    [data-theme="light"] .btn-secondary { background:var(--monzo-surface); color:var(--text); }
+    [data-theme="light"] .trace-section-body { color:#3a5068; }
+    #themeToggle { font-size:1rem; padding:.3rem .6rem; line-height:1; }
   </style>
 </head>
 <body>
@@ -330,6 +348,7 @@
     <div class="header-badges" id="headerBadges">
       <span class="badge badge-muted" id="badgeRedis"><span class="badge-dot"></span>Redis —</span>
       <span class="badge badge-muted" id="badgeSheets"><span class="badge-dot"></span>Sheets —</span>
+      <button id="themeToggle" class="btn btn-secondary btn-sm" title="Toggle light/dark theme">☀</button>
     </div>
   </header>
 
@@ -864,7 +883,7 @@ function renderOutcome(result) {
     html += `<div class="outcome-meta-row"><span class="outcome-meta-label">IDV Vendor</span><span class="outcome-meta-value">${escHtml(result.idv_vendor)} <span style="color:var(--text-muted);font-size:.78rem;">(${escHtml(result.idv_routing?.strategy || '')})</span></span></div>`;
   }
   if (result.reference_id) {
-    html += `<div class="outcome-meta-row"><span class="outcome-meta-label">Ref</span><span class="outcome-meta-value" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;">${escHtml(result.reference_id)}</span></div>`;
+    html += `<div class="outcome-meta-row"><span class="outcome-meta-label">Reference</span><span class="outcome-meta-value" style="font-family:'JetBrains Mono',monospace;letter-spacing:.06em;color:var(--monzo-orange);">${escHtml(result.reference_id)}</span></div>`;
   }
   meta.innerHTML = html;
 
@@ -1674,6 +1693,23 @@ async function submitReview(referenceId, outcome) {
 }
 
 document.getElementById('btnReviewRefresh').addEventListener('click', loadReviewQueue);
+
+// Theme toggle (day / night)
+// ────────────────────────────────────────────────────────────────────────────
+
+(function initTheme() {
+  const html = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const stored = localStorage.getItem('tp-theme') || 'dark';
+  html.setAttribute('data-theme', stored);
+  btn.textContent = stored === 'light' ? '🌙' : '☀';
+  btn.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    btn.textContent = next === 'light' ? '🌙' : '☀';
+    localStorage.setItem('tp-theme', next);
+  });
+})();
 
 // ────────────────────────────────────────────────────────────────────────────
 // Init
