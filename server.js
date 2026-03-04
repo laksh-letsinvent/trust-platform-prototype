@@ -343,7 +343,7 @@ app.post('/idv/webhook', async (req, res) => {
         }
 
         // Determine new auth level based on IDV result
-        const idvOutcomeMap = { PASS: 'AL4', FAIL: null, REVIEW: null };
+        const idvOutcomeMap = { PASS: 'IDV', FAIL: null, REVIEW: null };
         const newAuthLevel = idvOutcomeMap[result] || null;
 
         if (result === 'PASS' && newAuthLevel) {
