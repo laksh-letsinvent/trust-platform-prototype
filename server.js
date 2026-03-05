@@ -15,7 +15,7 @@ const idvRouting = require('./idvRouting');
 const velocityEngine = require('./velocityEngine');
 const sessionStore = require('./sessionStore');
 
-const { initAmplitude } = require('./amplitude');
+const { initAmplitude, trackOutcome } = require('./amplitude');
 
 // Sheets is optional — only used for sync
 let sheets = null;
@@ -294,6 +294,14 @@ app.post('/trust/step-up/complete', async (req, res) => {
             final_outcome: stepOutcome,
         });
 
+        trackOutcome({
+            customer_id: session.customer_id,
+            action: session.action,
+            decision: 'STEP_UP',
+            outcome: stepOutcome,
+            original_reference_id: reference_id,
+        });
+
         return res.json({
             decision: 'STEP_UP',
             outcome: stepOutcome,
@@ -383,6 +391,13 @@ app.post('/idv/webhook', async (req, res) => {
                 completed_at: Date.now(),
                 final_decision: 'STEP_UP',
                 final_outcome: idvOutcome,
+            });
+            trackOutcome({
+                customer_id: session.customer_id,
+                action: session.action,
+                decision: 'STEP_UP',
+                outcome: idvOutcome,
+                original_reference_id: session.reference_id,
             });
             return res.json({ ok: true, reference_id: session.reference_id, result, decision: 'STEP_UP', outcome: idvOutcome });
         } else {
@@ -479,15 +494,24 @@ app.post('/trust/review/:reference_id/feedback', async (req, res) => {
         // Record the review outcome as a lifecycle subcategory of MANUAL_REVIEW
         if (outcome === 'APPROVE' || outcome === 'DENY' || outcome === 'ESCALATE') {
             const origTrace = session.original_decision && session.original_decision.trace;
+            const reviewOutcome = outcome === 'APPROVE' ? 'APPROVED' : outcome === 'DENY' ? 'DENIED' : 'ESCALATED';
             analytics.record({
                 customer_id: session.customer_id,
                 action: session.action,
                 actionTier: origTrace && origTrace.context ? origTrace.context.actionTier : null,
                 riskLevel: origTrace && origTrace.context ? origTrace.context.riskLevel : null,
                 decision: 'MANUAL_REVIEW',
-                outcome: outcome === 'APPROVE' ? 'APPROVED' : outcome === 'DENY' ? 'DENIED' : 'ESCALATED',
+                outcome: reviewOutcome,
                 ruleId: origTrace && origTrace.policy ? origTrace.policy.ruleId : null,
                 original_reference_id: reference_id,
+            });
+            trackOutcome({
+                customer_id: session.customer_id,
+                action: session.action,
+                decision: 'MANUAL_REVIEW',
+                outcome: reviewOutcome,
+                original_reference_id: reference_id,
+                reviewer_id: reviewer_id || null,
             });
         }
 

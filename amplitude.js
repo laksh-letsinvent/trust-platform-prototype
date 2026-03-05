@@ -24,7 +24,7 @@ function initAmplitude() {
 }
 
 /**
- * Track a trust_decision event.
+ * Track a trust_decision event (primary decisions only — FRICTIONLESS, STEP_UP, MANUAL_REVIEW, DENY).
  * @param {{
  *   customer_id: string,
  *   action: string,
@@ -65,4 +65,35 @@ function trackDecision(entry) {
     }
 }
 
-module.exports = { initAmplitude, trackDecision };
+/**
+ * Track a trust_decision_outcome event (step-up or manual review completions).
+ * Fired once per lifecycle event — does NOT replace the original trust_decision.
+ * @param {{
+ *   customer_id: string,
+ *   action: string,
+ *   decision: string,           // 'STEP_UP' | 'MANUAL_REVIEW'
+ *   outcome: string,            // 'APPROVED' | 'DENIED' | 'ESCALATED'
+ *   original_reference_id: string|null,
+ *   reviewer_id?: string|null,  // manual review only
+ * }} entry
+ */
+function trackOutcome(entry) {
+    if (!initialized) return;
+    try {
+        track({
+            event_type: 'trust_decision_outcome',
+            user_id: entry.customer_id || 'unknown',
+            event_properties: {
+                decision:              entry.decision              || null,
+                outcome:               entry.outcome               || null,
+                action:                entry.action                || null,
+                original_reference_id: entry.original_reference_id || null,
+                reviewer_id:           entry.reviewer_id           || null,
+            }
+        });
+    } catch (err) {
+        console.warn('Amplitude track error:', err.message);
+    }
+}
+
+module.exports = { initAmplitude, trackDecision, trackOutcome };
