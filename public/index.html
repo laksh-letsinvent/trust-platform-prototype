@@ -1534,7 +1534,7 @@ async function pollStepUpStatus(referenceId) {
   try {
     const data = await apiFetch(`/trust/step-up/${encodeURIComponent(referenceId)}/status`);
     if (data.status === 'COMPLETED' && data.final_decision) {
-      renderFinalOutcome({ decision: data.final_decision, reason: `Session completed (polled)` }, { reference_id: referenceId });
+      renderFinalOutcome({ decision: data.final_decision, outcome: data.final_outcome, reason: `Session completed (polled)` }, { reference_id: referenceId });
     } else {
       showToast(`Status: ${data.status}${data.final_decision ? ' → ' + data.final_decision : ' (still pending)'}`, 'info');
     }
@@ -1550,13 +1550,39 @@ function renderFinalOutcome(finalData, originalResult) {
   const decisionIcons   = { FRICTIONLESS: '✅', ALLOW: '✅', DENY: '🚫', STEP_UP: '🔐', MANUAL_REVIEW: '🔍' };
   const decisionTitles  = { FRICTIONLESS: 'Access Granted', ALLOW: 'Access Granted', DENY: 'Access Denied', STEP_UP: 'Further Step-Up Required', MANUAL_REVIEW: 'Sent to Review Queue' };
   const dec = finalData.decision;
-  const cls = (dec || '').toLowerCase().replace('_', '_');
+  const out = finalData.outcome || null;   // 'APPROVED' | 'DENIED' | 'ESCALATED' | null
+
+  // Did the customer ultimately get access?
+  const isGranted = dec === 'FRICTIONLESS' || dec === 'ALLOW'
+    || (dec === 'STEP_UP' && out === 'APPROVED')
+    || (dec === 'MANUAL_REVIEW' && out === 'APPROVED');
+
+  // Display label / title / icon depend on STEP_UP outcome
+  const badgeLabel = dec === 'STEP_UP' && out === 'APPROVED' ? '↑ Step Up · Approved'
+    : dec === 'STEP_UP' && out === 'DENIED'   ? '↑ Step Up · Denied'
+    : decisionLabels[dec] || dec;
+
+  const titleLabel = dec === 'STEP_UP' && out === 'APPROVED' ? 'Access Granted'
+    : dec === 'STEP_UP' && out === 'DENIED'   ? 'Access Denied'
+    : decisionTitles[dec] || 'Final decision';
+
+  const iconLabel = isGranted ? '✅' : (dec === 'DENY' || (dec === 'STEP_UP' && out === 'DENIED')) ? '🚫' : decisionIcons[dec] || '⊙';
+
+  // Banner CSS class — approved STEP_UP gets teal styling; denied gets red
+  const bannerCls = dec === 'STEP_UP' && out === 'APPROVED' ? 'frictionless'
+    : dec === 'STEP_UP' && out === 'DENIED'   ? 'deny'
+    : (dec || '').toLowerCase().replace('_', '_');
+
+  // Badge CSS class — approved STEP_UP reuses FRICTIONLESS teal; denied gets DENY red
+  const badgeCls = dec === 'STEP_UP' && out === 'APPROVED' ? 'FRICTIONLESS'
+    : dec === 'STEP_UP' && out === 'DENIED'   ? 'DENY'
+    : dec;
 
   // 1. Update the main DECISION OUTCOME badge
   const badge = document.getElementById('outcomeBadge');
   if (badge) {
-    badge.className = `outcome-badge ${dec}`;
-    badge.textContent = decisionLabels[dec] || dec;
+    badge.className = `outcome-badge ${badgeCls}`;
+    badge.textContent = badgeLabel;
     badge.style.animation = 'none'; badge.offsetHeight; badge.style.animation = '';
   }
   // Update outcome meta reason
@@ -1565,7 +1591,7 @@ function renderFinalOutcome(finalData, originalResult) {
     const authMethod = originalResult.step_up_type || '';
     const ref = originalResult.reference_id || '';
     meta.innerHTML = `
-      <div class="outcome-meta-row"><span class="outcome-meta-label">Result</span><span class="outcome-meta-value" style="font-size:.82rem;color:var(--text-muted);">${escHtml(finalData.reason || decisionTitles[dec] || dec)}</span></div>
+      <div class="outcome-meta-row"><span class="outcome-meta-label">Result</span><span class="outcome-meta-value" style="font-size:.82rem;color:var(--text-muted);">${escHtml(finalData.reason || titleLabel)}</span></div>
       ${authMethod ? `<div class="outcome-meta-row"><span class="outcome-meta-label">Auth method</span><span class="outcome-meta-value">${escHtml(authMethod)}</span></div>` : ''}
       ${ref ? `<div class="outcome-meta-row"><span class="outcome-meta-label">Ref</span><span class="outcome-meta-value" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;">${escHtml(ref)}</span></div>` : ''}
     `;
@@ -1575,36 +1601,37 @@ function renderFinalOutcome(finalData, originalResult) {
   const stage2 = document.getElementById('stepUpStage2');
   if (stage2) {
     const numEl = stage2.querySelector('.stepup-stage-num');
-    numEl.className = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? 'stepup-stage-num done' : 'stepup-stage-num denied';
-    numEl.textContent = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? '✓' : '✕';
+    numEl.className = isGranted ? 'stepup-stage-num done' : 'stepup-stage-num denied';
+    numEl.textContent = isGranted ? '✓' : '✕';
     stage2.className = 'stepup-stage done';
     const ctrl = document.getElementById('stepUpStage2Controls');
-    if (ctrl) ctrl.innerHTML = `<p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0;">${(dec === 'FRICTIONLESS' || dec === 'ALLOW') ? 'Authentication completed successfully.' : 'Authentication challenge processed.'}</p>`;
+    if (ctrl) ctrl.innerHTML = `<p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0;">${isGranted ? 'Authentication completed successfully.' : 'Authentication challenge processed.'}</p>`;
   }
 
   // 3. Reveal stage 3 with final outcome banner
   const stage3 = document.getElementById('stepUpStage3');
   if (stage3) {
+    const isDenied = dec === 'DENY' || (dec === 'STEP_UP' && out === 'DENIED');
     const numEl = stage3.querySelector('.stepup-stage-num');
-    numEl.className = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? 'stepup-stage-num done' : dec === 'DENY' ? 'stepup-stage-num denied' : 'stepup-stage-num active';
-    numEl.textContent = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? '✓' : dec === 'DENY' ? '✕' : '!';
+    numEl.className = isGranted ? 'stepup-stage-num done' : isDenied ? 'stepup-stage-num denied' : 'stepup-stage-num active';
+    numEl.textContent = isGranted ? '✓' : isDenied ? '✕' : '!';
     stage3.className = 'stepup-stage active';
     const labelEl = stage3.querySelector('.stepup-stage-label');
-    if (labelEl) { labelEl.textContent = decisionTitles[dec] || 'Final decision'; labelEl.style.color = ''; }
+    if (labelEl) { labelEl.textContent = titleLabel; labelEl.style.color = ''; }
     stage3.querySelector('.stepup-stage-content').insertAdjacentHTML('beforeend', `
-      <div class="stepup-final-banner ${cls}">
-        <div class="stepup-final-icon">${decisionIcons[dec] || '⊙'}</div>
-        <div class="stepup-final-title">${escHtml(decisionTitles[dec] || dec)}</div>
+      <div class="stepup-final-banner ${bannerCls}">
+        <div class="stepup-final-icon">${iconLabel}</div>
+        <div class="stepup-final-title">${escHtml(titleLabel)}</div>
         <div class="stepup-final-sub">${escHtml(finalData.reason || '')}</div>
         ${dec === 'MANUAL_REVIEW' ? '<div class="stepup-final-sub" style="margin-top:.3rem;">Check the <strong>Review Queue</strong> tab for this case.</div>' : ''}
       </div>
     `);
   }
 
-  // 4. Turn the journey panel header teal on FRICTIONLESS
+  // 4. Turn the journey panel header teal on access granted (FRICTIONLESS or STEP_UP approved)
   const journeyEl = document.querySelector('.stepup-journey');
   const titleEl = document.getElementById('stepUpJourneyTitle');
-  if (journeyEl && (dec === 'FRICTIONLESS' || dec === 'ALLOW')) {
+  if (journeyEl && isGranted) {
     journeyEl.classList.add('completed');
     titleEl.textContent = 'Authentication Complete';
   }

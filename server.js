@@ -275,27 +275,30 @@ app.post('/trust/step-up/complete', async (req, res) => {
             current_auth_level: completed_auth_level
         }, { skipAnalytics: true });
 
-        // Record lifecycle outcome as subcategory of the original STEP_UP
+        // The re-evaluation may return FRICTIONLESS (auth now sufficient) or DENY/STEP_UP.
+        // The *transaction* was a STEP_UP — record outcome as subcategory, not a new primary.
+        const stepOutcome = result.decision === 'FRICTIONLESS' ? 'APPROVED' : 'DENIED';
+
         analytics.record({
             customer_id: session.customer_id,
             action: session.action,
             decision: 'STEP_UP',
-            outcome: result.decision === 'FRICTIONLESS' ? 'APPROVED' : 'DENIED',
+            outcome: stepOutcome,
             original_reference_id: reference_id,
         });
 
         sessionStore.updateSession(reference_id, {
             status: 'COMPLETED',
             completed_at: Date.now(),
-            final_decision: result.decision,
+            final_decision: 'STEP_UP',
+            final_outcome: stepOutcome,
         });
 
         return res.json({
-            decision: result.decision,
-            step_up_type: result.step_up_type,
+            decision: 'STEP_UP',
+            outcome: stepOutcome,
             reason: result.reason,
             original_reference_id: reference_id,
-            new_reference_id: result.reference_id,
             trace: result.trace,
         });
     } catch (err) {
@@ -319,6 +322,7 @@ app.get('/trust/step-up/:reference_id/status', (req, res) => {
         idv_vendor: session.idv_vendor,
         idv_session_id: session.idv_session_id,
         final_decision: session.final_decision,
+        final_outcome: session.final_outcome,
         created_at: session.created_at,
         expires_at: session.expires_at,
         completed_at: session.completed_at,
@@ -372,12 +376,15 @@ app.post('/idv/webhook', async (req, res) => {
                 original_reference_id: session.reference_id,
             });
 
+            // The transaction was a STEP_UP — store outcome as subcategory, not FRICTIONLESS
+            const idvOutcome = decision.decision === 'FRICTIONLESS' ? 'APPROVED' : 'DENIED';
             sessionStore.updateSession(session.reference_id, {
                 status: 'COMPLETED',
                 completed_at: Date.now(),
-                final_decision: decision.decision,
+                final_decision: 'STEP_UP',
+                final_outcome: idvOutcome,
             });
-            return res.json({ ok: true, reference_id: session.reference_id, result, decision: decision.decision });
+            return res.json({ ok: true, reference_id: session.reference_id, result, decision: 'STEP_UP', outcome: idvOutcome });
         } else {
             // FAIL or REVIEW — mark as failed/pending review
             sessionStore.updateSession(session.reference_id, {
