@@ -95,6 +95,7 @@
       display:inline-flex; align-items:center; gap:.5rem; padding:.5rem 1rem;
       border-radius:24px; font-size:1rem; font-weight:700; animation:badge-pop .25s ease forwards;
     }
+    .outcome-badge.FRICTIONLESS { background:var(--monzo-teal-dim); color:var(--monzo-teal); border:1px solid rgba(0,122,139,.35); }
     .outcome-badge.ALLOW { background:var(--monzo-green-bg); color:var(--monzo-green); border:1px solid rgba(75,183,143,.3); }
     .outcome-badge.STEP_UP { background:var(--monzo-orange-bg); color:var(--monzo-orange); border:1px solid rgba(241,189,118,.3); }
     .outcome-badge.DENY { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); }
@@ -202,6 +203,8 @@
     .metric-card .metric-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.4rem; }
     .metric-card .metric-count { font-size:2rem; font-weight:700; font-family:'JetBrains Mono',monospace; line-height:1; }
     .metric-card .metric-pct { font-size:.8rem; color:var(--text-muted); margin-top:.2rem; }
+    .metric-card.frictionless { background:var(--monzo-teal-dim); border-color:rgba(0,122,139,.25); }
+    .metric-card.frictionless .metric-label { color:var(--monzo-teal); }
     .metric-card.allow { background:var(--monzo-green-bg); border-color:rgba(75,183,143,.25); }
     .metric-card.allow .metric-label { color:var(--monzo-green); }
     .metric-card.step_up { background:var(--monzo-orange-bg); border-color:rgba(241,189,118,.25); }
@@ -212,6 +215,7 @@
     .metric-card.manual_review .metric-label { color:var(--monzo-purple); }
     .bar-chart { display:flex; gap:.3rem; height:8px; border-radius:4px; overflow:hidden; margin:0 0 1.25rem; }
     .bar-seg { height:100%; transition:width .5s ease; min-width:0; }
+    .bar-seg.frictionless { background:var(--monzo-teal); }
     .bar-seg.allow { background:var(--monzo-green); }
     .bar-seg.step_up { background:var(--monzo-orange); }
     .bar-seg.deny { background:var(--monzo-red); }
@@ -275,6 +279,7 @@
 
     /* Final outcome banner inside journey */
     .stepup-final-banner { padding:.85rem 1rem; border-radius:var(--radius-sm); text-align:center; margin-top:.4rem; animation:fadeIn .35s ease; }
+    .stepup-final-banner.frictionless { background:rgba(0,122,139,.1); border:1px solid rgba(0,122,139,.35); }
     .stepup-final-banner.allow { background:rgba(75,183,143,.1); border:1px solid rgba(75,183,143,.35); }
     .stepup-final-banner.deny  { background:rgba(254,75,96,.1);  border:1px solid rgba(254,75,96,.35); }
     .stepup-final-banner.step_up { background:var(--monzo-orange-bg); border:1px solid rgba(241,189,118,.3); }
@@ -314,7 +319,7 @@
     .btn-escalate { background:var(--monzo-purple-bg); color:var(--monzo-purple); border:1px solid rgba(155,125,220,.3); }
     .btn-escalate:hover { background:rgba(155,125,220,.25); }
     .review-outcome-badge { display:inline-flex; align-items:center; gap:.4rem; padding:.3rem .75rem; border-radius:20px; font-size:.78rem; font-weight:700; }
-    .review-outcome-badge.APPROVE { background:var(--monzo-green-bg); color:var(--monzo-green); }
+    .review-outcome-badge.APPROVE, .review-outcome-badge.FRICTIONLESS { background:var(--monzo-teal-dim); color:var(--monzo-teal); }
     .review-outcome-badge.DENY { background:var(--monzo-red-bg); color:var(--monzo-red); }
     .review-outcome-badge.ESCALATE { background:var(--monzo-purple-bg); color:var(--monzo-purple); }
 
@@ -615,18 +620,18 @@
 
     <!-- Decision metric cards -->
     <div class="metric-cards">
-      <div class="metric-card allow">
-        <div class="metric-label">Allow</div>
-        <div class="metric-count" id="metAllow">—</div>
-        <div class="metric-pct" id="metAllowPct">0% of decisions</div>
-        <div id="allowBreakdownRow" style="display:none;margin-top:.5rem;font-size:.72rem;color:var(--text-muted);line-height:1.6;">
-          <span id="allowBreakdownText"></span>
-        </div>
+      <div class="metric-card frictionless">
+        <div class="metric-label">Frictionless</div>
+        <div class="metric-count" id="metFrictionless">—</div>
+        <div class="metric-pct" id="metFrictionlessPct">0% of decisions</div>
       </div>
       <div class="metric-card step_up">
         <div class="metric-label">Step Up</div>
         <div class="metric-count" id="metStepUp">—</div>
         <div class="metric-pct" id="metStepUpPct">0% of decisions</div>
+        <div id="stepUpOutcomeRow" style="display:none;margin-top:.5rem;font-size:.72rem;color:var(--text-muted);line-height:1.6;">
+          <span id="stepUpOutcomeText"></span>
+        </div>
       </div>
       <div class="metric-card deny">
         <div class="metric-label">Deny</div>
@@ -637,12 +642,15 @@
         <div class="metric-label">Manual Review</div>
         <div class="metric-count" id="metManual">—</div>
         <div class="metric-pct" id="metManualPct">0% of decisions</div>
+        <div id="reviewOutcomeRow" style="display:none;margin-top:.5rem;font-size:.72rem;color:var(--text-muted);line-height:1.6;">
+          <span id="reviewOutcomeText"></span>
+        </div>
       </div>
     </div>
 
     <!-- Bar chart -->
     <div class="bar-chart" id="analyticsBarChart">
-      <div class="bar-seg allow" id="barAllow" style="width:0%"></div>
+      <div class="bar-seg frictionless" id="barFrictionless" style="width:0%"></div>
       <div class="bar-seg step_up" id="barStepUp" style="width:0%"></div>
       <div class="bar-seg deny" id="barDeny" style="width:0%"></div>
       <div class="bar-seg manual_review" id="barManual" style="width:0%"></div>
@@ -869,7 +877,7 @@ function renderOutcome(result) {
   res.style.display = 'block';
 
   const badge = document.getElementById('outcomeBadge');
-  const labels = { ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
+  const labels = { FRICTIONLESS: '✓ Frictionless', ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
   badge.className = `outcome-badge ${result.decision}`;
   badge.textContent = labels[result.decision] || result.decision;
   // Force reflow for animation replay
@@ -1262,38 +1270,54 @@ document.getElementById('btnAnalyticsClear').addEventListener('click', () => {
 });
 
 function renderAnalytics(data) {
-  const { total = 0, decisionCounts = {}, decisionPct = {}, allowBreakdown = {}, stepUpCounts = {}, perAction = {}, perRiskLevel = {}, ruleCounts = {} } = data;
+  const { total = 0, decisionCounts = {}, decisionPct = {}, stepUpOutcomes = {}, reviewOutcomes = {}, stepUpCounts = {}, perAction = {}, perRiskLevel = {}, ruleCounts = {} } = data;
 
-  // Metric cards
-  document.getElementById('metAllow').textContent = decisionCounts.ALLOW ?? 0;
-  document.getElementById('metAllowPct').textContent = `${decisionPct.ALLOW ?? 0}% of decisions`;
+  // Metric cards — Frictionless
+  document.getElementById('metFrictionless').textContent    = decisionCounts.FRICTIONLESS ?? 0;
+  document.getElementById('metFrictionlessPct').textContent = `${decisionPct.FRICTIONLESS ?? 0}% of decisions`;
 
-  // ALLOW breakdown sub-row — only shown when at least one non-direct ALLOW exists
-  const nonDirect = (allowBreakdown.after_step_up || 0) + (allowBreakdown.after_idv || 0) + (allowBreakdown.after_manual_review || 0);
-  const breakdownRow = document.getElementById('allowBreakdownRow');
-  if (nonDirect > 0) {
-    const parts = [];
-    if (allowBreakdown.direct > 0)              parts.push(`${allowBreakdown.direct} direct`);
-    if (allowBreakdown.after_step_up > 0)       parts.push(`${allowBreakdown.after_step_up} after step-up`);
-    if (allowBreakdown.after_idv > 0)           parts.push(`${allowBreakdown.after_idv} after IDV`);
-    if (allowBreakdown.after_manual_review > 0) parts.push(`${allowBreakdown.after_manual_review} after review`);
-    document.getElementById('allowBreakdownText').textContent = '↳ ' + parts.join(' · ');
-    breakdownRow.style.display = '';
-  } else {
-    breakdownRow.style.display = 'none';
-  }
-  document.getElementById('metStepUp').textContent = decisionCounts.STEP_UP ?? 0;
+  // Step Up + outcome sub-row
+  document.getElementById('metStepUp').textContent    = decisionCounts.STEP_UP ?? 0;
   document.getElementById('metStepUpPct').textContent = `${decisionPct.STEP_UP ?? 0}% of decisions`;
-  document.getElementById('metDeny').textContent = decisionCounts.DENY ?? 0;
+  const stepTotal = (stepUpOutcomes.APPROVED || 0) + (stepUpOutcomes.DENIED || 0) + (stepUpOutcomes.EXPIRED || 0);
+  const stepRow = document.getElementById('stepUpOutcomeRow');
+  if (stepTotal > 0) {
+    const parts = [];
+    if (stepUpOutcomes.APPROVED) parts.push(`${stepUpOutcomes.APPROVED} approved`);
+    if (stepUpOutcomes.DENIED)   parts.push(`${stepUpOutcomes.DENIED} denied`);
+    if (stepUpOutcomes.EXPIRED)  parts.push(`${stepUpOutcomes.EXPIRED} expired`);
+    document.getElementById('stepUpOutcomeText').textContent = '↳ ' + parts.join(' · ');
+    stepRow.style.display = '';
+  } else {
+    stepRow.style.display = 'none';
+  }
+
+  // Deny
+  document.getElementById('metDeny').textContent    = decisionCounts.DENY ?? 0;
   document.getElementById('metDenyPct').textContent = `${decisionPct.DENY ?? 0}% of decisions`;
-  document.getElementById('metManual').textContent = decisionCounts.MANUAL_REVIEW ?? 0;
+
+  // Manual Review + outcome sub-row
+  document.getElementById('metManual').textContent    = decisionCounts.MANUAL_REVIEW ?? 0;
   document.getElementById('metManualPct').textContent = `${decisionPct.MANUAL_REVIEW ?? 0}% of decisions`;
+  const reviewTotal = (reviewOutcomes.APPROVED || 0) + (reviewOutcomes.DENIED || 0) + (reviewOutcomes.ESCALATED || 0) + (reviewOutcomes.EXPIRED || 0);
+  const reviewRow = document.getElementById('reviewOutcomeRow');
+  if (reviewTotal > 0) {
+    const parts = [];
+    if (reviewOutcomes.APPROVED)  parts.push(`${reviewOutcomes.APPROVED} approved`);
+    if (reviewOutcomes.DENIED)    parts.push(`${reviewOutcomes.DENIED} denied`);
+    if (reviewOutcomes.ESCALATED) parts.push(`${reviewOutcomes.ESCALATED} escalated`);
+    if (reviewOutcomes.EXPIRED)   parts.push(`${reviewOutcomes.EXPIRED} expired`);
+    document.getElementById('reviewOutcomeText').textContent = '↳ ' + parts.join(' · ');
+    reviewRow.style.display = '';
+  } else {
+    reviewRow.style.display = 'none';
+  }
 
   // Bar chart
-  document.getElementById('barAllow').style.width = `${decisionPct.ALLOW ?? 0}%`;
-  document.getElementById('barStepUp').style.width = `${decisionPct.STEP_UP ?? 0}%`;
-  document.getElementById('barDeny').style.width = `${decisionPct.DENY ?? 0}%`;
-  document.getElementById('barManual').style.width = `${decisionPct.MANUAL_REVIEW ?? 0}%`;
+  document.getElementById('barFrictionless').style.width = `${decisionPct.FRICTIONLESS ?? 0}%`;
+  document.getElementById('barStepUp').style.width       = `${decisionPct.STEP_UP ?? 0}%`;
+  document.getElementById('barDeny').style.width         = `${decisionPct.DENY ?? 0}%`;
+  document.getElementById('barManual').style.width       = `${decisionPct.MANUAL_REVIEW ?? 0}%`;
 
   // Step-up breakdown
   const stepUpContainer = document.getElementById('stepUpBreakdown');
@@ -1327,9 +1351,9 @@ function renderAnalytics(data) {
     perActionEl.innerHTML = '<p class="no-data">No data yet</p>';
   } else {
     perActionEl.innerHTML = `<table class="analytics-table">
-      <thead><tr><th>Action</th><th>Allow</th><th>StepUp</th><th>Deny</th><th>Review</th></tr></thead>
+      <thead><tr><th>Action</th><th>Frictionless</th><th>StepUp</th><th>Deny</th><th>Review</th></tr></thead>
       <tbody>${actionEntries.map(([action, counts]) =>
-        `<tr><td>${escHtml(action)}</td><td>${counts.ALLOW||0}</td><td>${counts.STEP_UP||0}</td><td>${counts.DENY||0}</td><td>${counts.MANUAL_REVIEW||0}</td></tr>`
+        `<tr><td>${escHtml(action)}</td><td>${counts.FRICTIONLESS||0}</td><td>${counts.STEP_UP||0}</td><td>${counts.DENY||0}</td><td>${counts.MANUAL_REVIEW||0}</td></tr>`
       ).join('')}</tbody></table>`;
   }
 
@@ -1341,9 +1365,9 @@ function renderAnalytics(data) {
     perRiskEl.innerHTML = '<p class="no-data">No data yet</p>';
   } else {
     perRiskEl.innerHTML = `<table class="analytics-table">
-      <thead><tr><th>Risk Level</th><th>Allow</th><th>StepUp</th><th>Deny</th><th>Review</th></tr></thead>
+      <thead><tr><th>Risk Level</th><th>Frictionless</th><th>StepUp</th><th>Deny</th><th>Review</th></tr></thead>
       <tbody>${riskEntries.map(([level, counts]) =>
-        `<tr><td>${escHtml(level)}</td><td>${counts.ALLOW||0}</td><td>${counts.STEP_UP||0}</td><td>${counts.DENY||0}</td><td>${counts.MANUAL_REVIEW||0}</td></tr>`
+        `<tr><td>${escHtml(level)}</td><td>${counts.FRICTIONLESS||0}</td><td>${counts.STEP_UP||0}</td><td>${counts.DENY||0}</td><td>${counts.MANUAL_REVIEW||0}</td></tr>`
       ).join('')}</tbody></table>`;
   }
 }
@@ -1522,9 +1546,9 @@ async function pollStepUpStatus(referenceId) {
 // ── Shared outcome helpers ──────────────────────────────────────────────────
 
 function renderFinalOutcome(finalData, originalResult) {
-  const decisionLabels  = { ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
-  const decisionIcons   = { ALLOW: '✅', DENY: '🚫', STEP_UP: '🔐', MANUAL_REVIEW: '🔍' };
-  const decisionTitles  = { ALLOW: 'Access Granted', DENY: 'Access Denied', STEP_UP: 'Further Step-Up Required', MANUAL_REVIEW: 'Sent to Review Queue' };
+  const decisionLabels  = { FRICTIONLESS: '✓ Frictionless', ALLOW: '✓ Allow', STEP_UP: '↑ Step Up', DENY: '✕ Deny', MANUAL_REVIEW: '⊙ Manual Review' };
+  const decisionIcons   = { FRICTIONLESS: '✅', ALLOW: '✅', DENY: '🚫', STEP_UP: '🔐', MANUAL_REVIEW: '🔍' };
+  const decisionTitles  = { FRICTIONLESS: 'Access Granted', ALLOW: 'Access Granted', DENY: 'Access Denied', STEP_UP: 'Further Step-Up Required', MANUAL_REVIEW: 'Sent to Review Queue' };
   const dec = finalData.decision;
   const cls = (dec || '').toLowerCase().replace('_', '_');
 
@@ -1551,19 +1575,19 @@ function renderFinalOutcome(finalData, originalResult) {
   const stage2 = document.getElementById('stepUpStage2');
   if (stage2) {
     const numEl = stage2.querySelector('.stepup-stage-num');
-    numEl.className = dec === 'ALLOW' ? 'stepup-stage-num done' : 'stepup-stage-num denied';
-    numEl.textContent = dec === 'ALLOW' ? '✓' : '✕';
+    numEl.className = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? 'stepup-stage-num done' : 'stepup-stage-num denied';
+    numEl.textContent = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? '✓' : '✕';
     stage2.className = 'stepup-stage done';
     const ctrl = document.getElementById('stepUpStage2Controls');
-    if (ctrl) ctrl.innerHTML = `<p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0;">${dec === 'ALLOW' ? 'Authentication completed successfully.' : 'Authentication challenge processed.'}</p>`;
+    if (ctrl) ctrl.innerHTML = `<p style="font-size:.75rem;color:var(--text-muted);margin:.2rem 0 0;">${(dec === 'FRICTIONLESS' || dec === 'ALLOW') ? 'Authentication completed successfully.' : 'Authentication challenge processed.'}</p>`;
   }
 
   // 3. Reveal stage 3 with final outcome banner
   const stage3 = document.getElementById('stepUpStage3');
   if (stage3) {
     const numEl = stage3.querySelector('.stepup-stage-num');
-    numEl.className = dec === 'ALLOW' ? 'stepup-stage-num done' : dec === 'DENY' ? 'stepup-stage-num denied' : 'stepup-stage-num active';
-    numEl.textContent = dec === 'ALLOW' ? '✓' : dec === 'DENY' ? '✕' : '!';
+    numEl.className = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? 'stepup-stage-num done' : dec === 'DENY' ? 'stepup-stage-num denied' : 'stepup-stage-num active';
+    numEl.textContent = (dec === 'FRICTIONLESS' || dec === 'ALLOW') ? '✓' : dec === 'DENY' ? '✕' : '!';
     stage3.className = 'stepup-stage active';
     const labelEl = stage3.querySelector('.stepup-stage-label');
     if (labelEl) { labelEl.textContent = decisionTitles[dec] || 'Final decision'; labelEl.style.color = ''; }
@@ -1577,10 +1601,10 @@ function renderFinalOutcome(finalData, originalResult) {
     `);
   }
 
-  // 4. Turn the journey panel header green on ALLOW
+  // 4. Turn the journey panel header teal on FRICTIONLESS
   const journeyEl = document.querySelector('.stepup-journey');
   const titleEl = document.getElementById('stepUpJourneyTitle');
-  if (journeyEl && dec === 'ALLOW') {
+  if (journeyEl && (dec === 'FRICTIONLESS' || dec === 'ALLOW')) {
     journeyEl.classList.add('completed');
     titleEl.textContent = 'Authentication Complete';
   }
@@ -1648,7 +1672,7 @@ function renderReviewQueue(data) {
     ].filter(Boolean).join('');
 
     const age = c.created_at ? `${Math.round((Date.now() - c.created_at) / 60000)}m ago` : '';
-    const reviewedByHtml = !isPending && c.reviewer_id ? `<span class="review-outcome-badge ${escHtml(c.final_decision || '')}">${escHtml(c.final_decision === 'ALLOW' ? 'APPROVED' : c.final_decision || '?')}</span> by ${escHtml(c.reviewer_id)}${c.notes ? ` — "${escHtml(c.notes)}"` : ''}` : '';
+    const reviewedByHtml = !isPending && c.reviewer_id ? `<span class="review-outcome-badge ${escHtml(c.final_decision || '')}">${escHtml((c.final_decision === 'FRICTIONLESS' || c.final_decision === 'ALLOW') ? 'APPROVED' : c.final_decision || '?')}</span> by ${escHtml(c.reviewer_id)}${c.notes ? ` — "${escHtml(c.notes)}"` : ''}` : '';
 
     return `
     <div class="review-case ${isPending ? '' : 'completed'}" id="case_${escHtml(c.reference_id)}">

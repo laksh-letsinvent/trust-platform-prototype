@@ -29,8 +29,8 @@ function record(entry) {
         step_up_type: entry.step_up_type || null,
         ruleId: entry.ruleId || null,
         reference_id: entry.reference_id || null,
-        triggered_by: entry.triggered_by || null,
-        original_reference_id: entry.original_reference_id || null
+        outcome: entry.outcome || null,              // null=primary; 'APPROVED'|'DENIED'|'ESCALATED'
+        original_reference_id: entry.original_reference_id || null,
     };
     ringBuffer.push(row);
     // Persist to JSONL file — survives server restarts
@@ -47,50 +47,52 @@ function getStats(filterCustomerId = null) {
         ? ringBuffer.filter(e => e.customer_id === filterCustomerId)
         : ringBuffer.slice();
 
-    const total = entries.length;
-    const decisionCounts = { ALLOW: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
-    const allowBreakdown = { direct: 0, after_step_up: 0, after_idv: 0, after_manual_review: 0 };
+    const decisionCounts  = { FRICTIONLESS: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
+    const stepUpOutcomes  = { APPROVED: 0, DENIED: 0, EXPIRED: 0 };
+    const reviewOutcomes  = { APPROVED: 0, DENIED: 0, ESCALATED: 0, EXPIRED: 0 };
     const stepUpCounts = {};
     const perAction = {};
     const perRiskLevel = {};
     const ruleCounts = {};
 
-    const DECISIONS = ['ALLOW', 'STEP_UP', 'DENY', 'MANUAL_REVIEW'];
-
     for (const e of entries) {
         const d = e.decision;
-        if (d && decisionCounts.hasOwnProperty(d)) decisionCounts[d]++;
 
-        // ALLOW breakdown: direct vs. post-challenge
-        if (d === 'ALLOW') {
-            if      (e.triggered_by === 'step_up_complete')       allowBreakdown.after_step_up++;
-            else if (e.triggered_by === 'idv_webhook')             allowBreakdown.after_idv++;
-            else if (e.triggered_by === 'manual_review_approved') allowBreakdown.after_manual_review++;
-            else                                                   allowBreakdown.direct++;
+        if (e.outcome == null) {
+            // Primary decision record — counts toward totals and breakdowns
+            if (d && decisionCounts.hasOwnProperty(d)) decisionCounts[d]++;
+
+            if (e.action) {
+                if (!perAction[e.action]) {
+                    perAction[e.action] = { tier: e.actionTier, FRICTIONLESS: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
+                }
+                if (d && perAction[e.action].hasOwnProperty(d)) perAction[e.action][d]++;
+            }
+
+            if (e.riskLevel) {
+                if (!perRiskLevel[e.riskLevel]) {
+                    perRiskLevel[e.riskLevel] = { FRICTIONLESS: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
+                }
+                if (d && perRiskLevel[e.riskLevel].hasOwnProperty(d)) perRiskLevel[e.riskLevel][d]++;
+            }
+
+            if (e.ruleId) {
+                ruleCounts[e.ruleId] = (ruleCounts[e.ruleId] || 0) + 1;
+            }
+        } else {
+            // Lifecycle outcome record — subcategory of STEP_UP or MANUAL_REVIEW
+            if (d === 'STEP_UP'       && stepUpOutcomes.hasOwnProperty(e.outcome))  stepUpOutcomes[e.outcome]++;
+            if (d === 'MANUAL_REVIEW' && reviewOutcomes.hasOwnProperty(e.outcome))  reviewOutcomes[e.outcome]++;
         }
 
+        // step_up_type counts span all records (counts all issued step-up challenges)
         if (e.step_up_type) {
             stepUpCounts[e.step_up_type] = (stepUpCounts[e.step_up_type] || 0) + 1;
         }
-
-        if (e.action) {
-            if (!perAction[e.action]) {
-                perAction[e.action] = { tier: e.actionTier, ALLOW: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
-            }
-            if (d && perAction[e.action].hasOwnProperty(d)) perAction[e.action][d]++;
-        }
-
-        if (e.riskLevel) {
-            if (!perRiskLevel[e.riskLevel]) {
-                perRiskLevel[e.riskLevel] = { ALLOW: 0, STEP_UP: 0, DENY: 0, MANUAL_REVIEW: 0 };
-            }
-            if (d && perRiskLevel[e.riskLevel].hasOwnProperty(d)) perRiskLevel[e.riskLevel][d]++;
-        }
-
-        if (e.ruleId) {
-            ruleCounts[e.ruleId] = (ruleCounts[e.ruleId] || 0) + 1;
-        }
     }
+
+    // total = primary decisions only (outcome === null)
+    const total = entries.filter(e => e.outcome == null).length;
 
     const decisionPct = {};
     for (const [k, v] of Object.entries(decisionCounts)) {
@@ -107,7 +109,8 @@ function getStats(filterCustomerId = null) {
         filterCustomerId: filterCustomerId || null,
         decisionCounts,
         decisionPct,
-        allowBreakdown,
+        stepUpOutcomes,
+        reviewOutcomes,
         stepUpCounts,
         perAction,
         perRiskLevel,

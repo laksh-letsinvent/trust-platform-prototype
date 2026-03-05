@@ -136,7 +136,6 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         default_used: policyResult.trace.default_used
     };
 
-    trace.decision = policyResult.decision;
     trace.step_up_type = policyResult.step_up_type;
     trace.reason = policyResult.reason;
     trace.reference_id = reference_id;
@@ -152,22 +151,29 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         trace.idv_session_id = idv_session_id;
     }
 
-    // Record for analytics
-    analytics.record({
-        customer_id,
-        action,
-        actionTier: context.actionTier,
-        riskLevel: context.riskLevel,
-        decision: policyResult.decision,
-        step_up_type: policyResult.step_up_type || null,
-        ruleId: policyResult.ruleId || null,
-        reference_id,
-        ...analyticsExtra
-    });
+    // Translate policy ALLOW → FRICTIONLESS (policy layer stays unaware of this rename)
+    const outputDecision = policyResult.decision === 'ALLOW' ? 'FRICTIONLESS' : policyResult.decision;
+    trace.decision = outputDecision;
+
+    // Record for analytics (unless caller suppresses for re-evaluation call sites)
+    if (!analyticsExtra.skipAnalytics) {
+        analytics.record({
+            customer_id,
+            action,
+            actionTier: context.actionTier,
+            riskLevel: context.riskLevel,
+            decision: outputDecision,
+            step_up_type: policyResult.step_up_type || null,
+            ruleId: policyResult.ruleId || null,
+            reference_id,
+            outcome: null,                      // null = primary decision record
+            original_reference_id: analyticsExtra.original_reference_id || null,
+        });
+    }
 
     // Create session for actionable decisions (enables step-up completion + review feedback)
     const fullResult = {
-        decision: policyResult.decision,
+        decision: outputDecision,
         step_up_type: policyResult.step_up_type,
         reason: policyResult.reason,
         reference_id,
@@ -185,7 +191,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         action,
         actionTier: context.actionTier,
         riskLevel: context.riskLevel,
-        decision: policyResult.decision,
+        decision: outputDecision,
         step_up_type: policyResult.step_up_type || null,
         ruleId: policyResult.ruleId || null,
         reference_id,
