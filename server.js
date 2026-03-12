@@ -253,7 +253,7 @@ app.post('/trust/step-up/complete', async (req, res) => {
         return res.status(400).json({ error: 'Missing required fields: reference_id, completed_auth_level' });
     }
 
-    const session = sessionStore.getSession(reference_id);
+    const session = await sessionStore.getSession(reference_id);
     if (!session) {
         return res.status(404).json({ error: 'Session not found. May have expired or never existed.' });
     }
@@ -287,7 +287,7 @@ app.post('/trust/step-up/complete', async (req, res) => {
             original_reference_id: reference_id,
         });
 
-        sessionStore.updateSession(reference_id, {
+        await sessionStore.updateSession(reference_id, {
             status: 'COMPLETED',
             completed_at: Date.now(),
             final_decision: 'STEP_UP',
@@ -317,8 +317,8 @@ app.post('/trust/step-up/complete', async (req, res) => {
 
 // ─── Step-up status poll ─────────────────────────────────────────────────────
 
-app.get('/trust/step-up/:reference_id/status', (req, res) => {
-    const session = sessionStore.getSession(req.params.reference_id);
+app.get('/trust/step-up/:reference_id/status', async (req, res) => {
+    const session = await sessionStore.getSession(req.params.reference_id);
     if (!session) {
         return res.status(404).json({ error: 'Session not found.' });
     }
@@ -345,7 +345,7 @@ app.post('/idv/webhook', async (req, res) => {
         return res.status(400).json({ error: 'Missing required fields: session_id, result' });
     }
 
-    const session = sessionStore.getSessionByIdvSessionId(session_id);
+    const session = await sessionStore.getSessionByIdvSessionId(session_id);
     if (!session) {
         return res.status(404).json({ error: 'IDV session not found.' });
     }
@@ -386,7 +386,7 @@ app.post('/idv/webhook', async (req, res) => {
 
             // The transaction was a STEP_UP — store outcome as subcategory, not FRICTIONLESS
             const idvOutcome = decision.decision === 'FRICTIONLESS' ? 'APPROVED' : 'DENIED';
-            sessionStore.updateSession(session.reference_id, {
+            await sessionStore.updateSession(session.reference_id, {
                 status: 'COMPLETED',
                 completed_at: Date.now(),
                 final_decision: 'STEP_UP',
@@ -402,7 +402,7 @@ app.post('/idv/webhook', async (req, res) => {
             return res.json({ ok: true, reference_id: session.reference_id, result, decision: 'STEP_UP', outcome: idvOutcome });
         } else {
             // FAIL or REVIEW — mark as failed/pending review
-            sessionStore.updateSession(session.reference_id, {
+            await sessionStore.updateSession(session.reference_id, {
                 status: result === 'FAIL' ? 'FAILED' : 'PENDING',
                 completed_at: result === 'FAIL' ? Date.now() : null,
                 final_decision: result === 'FAIL' ? 'DENY' : null,
@@ -460,7 +460,7 @@ app.post('/trust/review/:reference_id/feedback', async (req, res) => {
         return res.status(400).json({ error: 'outcome must be APPROVE, DENY, or ESCALATE' });
     }
 
-    const session = sessionStore.getSession(reference_id);
+    const session = await sessionStore.getSession(reference_id);
     if (!session) {
         return res.status(404).json({ error: 'Review case not found.' });
     }
@@ -482,7 +482,7 @@ app.post('/trust/review/:reference_id/feedback', async (req, res) => {
         const final_decision = outcome === 'APPROVE' ? 'FRICTIONLESS' : outcome === 'DENY' ? 'DENY' : null;
         const newStatus = outcome === 'ESCALATE' ? 'PENDING' : 'COMPLETED';
 
-        sessionStore.updateSession(reference_id, {
+        await sessionStore.updateSession(reference_id, {
             status: newStatus,
             completed_at: newStatus === 'COMPLETED' ? Date.now() : null,
             final_decision,
@@ -556,6 +556,7 @@ app.get('/status', (req, res) => {
 
 async function start() {
     await cache.connect();
+    await sessionStore.syncFromRedis();
     initAmplitude();
     app.listen(PORT, () => {
         console.log(`Trust Decision server running at http://localhost:${PORT}`);

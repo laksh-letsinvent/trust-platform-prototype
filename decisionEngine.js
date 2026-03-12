@@ -182,7 +182,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         trace
     };
     if (reference_id) {
-        sessionStore.createSession(fullResult, { customer_id, action, device_id });
+        await sessionStore.createSession(fullResult, { customer_id, action, device_id });
     }
 
     // Send to Amplitude
