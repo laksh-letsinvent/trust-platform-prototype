@@ -10,6 +10,39 @@ node server.js
 
 The server starts on port 3000 (or `PORT` env var). Redis and Google Sheets are optional — the server degrades gracefully without them.
 
+## Production deployment
+
+**Live URL:** https://trustdecision.letsinvent.co.uk
+**Server:** Hetzner VPS `77.42.46.176` (Ubuntu 22.04)
+**App path on server:** `/opt/trust-platform/`
+**Port on server:** 4000 (Caddy proxies 443 → 4000)
+**Process manager:** PM2 (`trust-platform`), auto-restarts on crash and VM reboot
+**Reverse proxy:** Caddy — config at `/etc/caddy/Caddyfile` on the server. SSL is managed automatically by Caddy via Let's Encrypt.
+
+Other apps on the same server: `letsinvent.co.uk` (banking demo) and `agent-idam.letsinvent.co.uk` (agent IDAM). Do not modify their Caddyfile blocks.
+
+### Redeploy after local changes
+
+```bash
+rsync -avz \
+  --exclude='.env' --exclude='credentials.json' --exclude='*.jsonl' \
+  --exclude='.DS_Store' --exclude='.claude/' --exclude='.git/' \
+  --exclude='node_modules/' --exclude='daily-digest-*.md' \
+  --exclude='trust-daily-digest-*.md' --exclude='design-system.html' \
+  --exclude='design-tokens.json' --exclude='touch' \
+  -e "ssh -i ~/.ssh/id_rsa" \
+  /Users/lsinghal/trust-platform-prototype/ \
+  root@77.42.46.176:/opt/trust-platform/ && \
+ssh -i ~/.ssh/id_rsa root@77.42.46.176 \
+  "cd /opt/trust-platform && npm install --production && pm2 restart trust-platform"
+```
+
+### SSH access
+
+```bash
+ssh -i ~/.ssh/id_rsa root@77.42.46.176
+```
+
 ## Google Sheets setup (optional)
 
 ```bash

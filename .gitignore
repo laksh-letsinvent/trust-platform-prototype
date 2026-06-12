@@ -2,3 +2,7 @@ node_modules
 .env
 .DS_Store
 sessions.jsonl
+credentials.json
+decisions.jsonl
+reviews.jsonl
+.claude/
