@@ -358,6 +358,38 @@
     [data-theme="light"] .trace-section-body { color:#3a5068; }
     #themeToggle { font-size:1rem; padding:.3rem .6rem; line-height:1; }
 
+    /* ── Phase 4: Rule performance + versioning ── */
+    .rule-perf-table { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:.5rem; }
+    .rule-perf-table th { text-align:left; color:var(--text-muted); font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; padding:.4rem .5rem; border-bottom:1px solid var(--monzo-border); }
+    .rule-perf-table td { padding:.45rem .5rem; border-bottom:1px solid rgba(30,58,82,.4); vertical-align:middle; }
+    .rule-perf-table tr:last-child td { border-bottom:none; }
+    .rule-perf-table td:first-child { font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--monzo-orange); }
+    .status-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.18rem .55rem; border-radius:10px; font-size:.68rem; font-weight:700; }
+    .status-pill.healthy      { background:var(--monzo-green-bg); color:var(--monzo-green); }
+    .status-pill.high_friction{ background:var(--monzo-orange-bg); color:var(--monzo-orange); }
+    .status-pill.dormant      { background:rgba(255,255,255,.06); color:var(--text-muted); }
+    .status-pill.dead         { background:var(--monzo-red-bg); color:var(--monzo-red); }
+    .rule-health-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; display:inline-block; }
+    .rule-health-dot.healthy       { background:var(--monzo-green); }
+    .rule-health-dot.high_friction { background:var(--monzo-orange); }
+    .rule-health-dot.dormant       { background:var(--text-muted); }
+    .rule-health-dot.dead          { background:var(--monzo-red); }
+
+    .history-list { display:flex; flex-direction:column; gap:.5rem; }
+    .history-item { padding:.6rem .75rem; background:var(--monzo-surface); border:1px solid var(--monzo-border); border-radius:var(--radius-sm); font-size:.8rem; }
+    .history-item-header { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+    .history-version { font-family:'JetBrains Mono',monospace; color:var(--monzo-orange); font-size:.75rem; font-weight:700; min-width:28px; }
+    .history-meta { color:var(--text-muted); font-size:.75rem; flex:1; }
+    .history-hash { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--text-muted); opacity:.6; }
+    .history-sim-note { font-size:.75rem; color:var(--text-muted); margin-top:.3rem; padding-top:.3rem; border-top:1px solid var(--monzo-border); }
+    .diff-panel { background:var(--monzo-surface); border:1px solid var(--monzo-border); border-radius:var(--radius-sm); padding:.75rem; margin-top:.5rem; font-size:.78rem; }
+    .diff-added   { color:var(--monzo-green); }
+    .diff-removed { color:var(--monzo-red); }
+    .diff-modified{ color:var(--monzo-orange); }
+
+    .draft-banner { display:flex; align-items:center; gap:.75rem; padding:.65rem 1rem; background:var(--monzo-orange-bg); border:1px solid rgba(241,189,118,.3); border-radius:var(--radius-sm); margin-bottom:1rem; font-size:.85rem; font-weight:500; color:var(--monzo-orange); }
+    .draft-banner-actions { margin-left:auto; display:flex; gap:.5rem; }
+
     /* ── Monitor tab ── */
     .monitor-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
     @media (max-width:800px) { .monitor-grid { grid-template-columns:1fr 1fr; } }
@@ -833,6 +865,15 @@
         <div id="perRiskTable"><p class="no-data">No data yet</p></div>
       </div>
     </div>
+
+    <!-- Rule Performance (Phase 4) -->
+    <div class="card" style="margin-top:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+        <p class="card-title" style="margin:0">Rule Performance <span style="font-weight:400;font-size:.75rem;color:var(--text-muted)">(last 48 h)</span></p>
+        <button class="btn btn-secondary btn-sm" onclick="loadRulePerformance()">Refresh</button>
+      </div>
+      <div id="rulePerfContainer"><p class="no-data">Loading…</p></div>
+    </div>
   </div>
 
   <!-- ══════════════════ TAB 4: REVIEW QUEUE ══════════════════ -->
@@ -862,6 +903,16 @@
         <span id="plCopilotBadge" class="badge badge-muted" style="font-size:.75rem"><span class="badge-dot"></span>AI copilot —</span>
       </div>
 
+      <!-- Draft banner (shown if a draft exists) -->
+      <div id="plDraftBanner" class="draft-banner" style="display:none">
+        <span>⚠ Draft pending — unsimulated changes saved locally.</span>
+        <div class="draft-banner-actions">
+          <button class="btn btn-secondary btn-sm" onclick="loadDraftIntoEditor()">Load into editor</button>
+          <button class="btn btn-primary btn-sm" onclick="publishDraftPolicy()">Publish draft</button>
+          <button class="btn btn-danger btn-sm" onclick="discardDraftPolicy()">Discard</button>
+        </div>
+      </div>
+
       <!-- Two-column layout: AI copilot | Manual JSON editor -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
 
@@ -885,8 +936,9 @@
           <p class="card-title">Manual Rule Editor</p>
           <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.75rem">Paste or type a rule object, or edit the AI suggestion.</p>
           <textarea id="plRuleJson" rows="12" style="width:100%;box-sizing:border-box;padding:.6rem .8rem;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-family:monospace;font-size:.78rem;resize:vertical" placeholder='{"id":"my_rule","enabled":true,"description":"...","condition":{},"decision":"STEP_UP","step_up_type":"PASSKEY","reason":"..."}'></textarea>
-          <div style="display:flex;gap:.5rem;margin-top:.5rem">
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
             <button id="plBtnSimulate" class="btn btn-secondary btn-sm" style="flex:1">Simulate Impact</button>
+            <button id="plBtnSaveDraft" class="btn btn-secondary btn-sm" style="flex:1">Save as Draft</button>
             <button id="plBtnPublish" class="btn btn-primary btn-sm" style="flex:1" disabled>Publish Rule</button>
           </div>
           <div id="plValidation" style="margin-top:.5rem;font-size:.8rem"></div>
@@ -926,6 +978,17 @@
           <!-- Changed samples -->
           <div id="plSamples"></div>
         </div>
+      </div>
+
+      <!-- Version History -->
+      <div class="card" style="margin-top:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <p class="card-title" style="margin:0">Version History</p>
+          <button class="btn btn-secondary btn-sm" onclick="loadPolicyHistory()">Refresh</button>
+        </div>
+        <p style="font-size:.8rem;color:var(--text-muted);margin:0 0 .75rem">Each publish creates a version. Rollback restores the policy file and clears engine cache.</p>
+        <div id="plHistoryList" class="history-list"><p class="no-data">Loading…</p></div>
+        <div id="plDiffPanel" class="diff-panel" style="display:none"></div>
       </div>
 
     </div>
@@ -972,6 +1035,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tabId === 'analytics' && !tabsInitialized.analytics) {
       tabsInitialized.analytics = true;
       loadAnalytics();
+      loadRulePerformance();
       startAnalyticsAutoRefresh();
     }
     if (tabId === 'control' && !tabsInitialized.control) {
@@ -981,9 +1045,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tabId === 'review') {
       loadReviewQueue();
     }
-    if (tabId === 'policy-lab' && !tabsInitialized['policy-lab']) {
-      tabsInitialized['policy-lab'] = true;
-      initPolicyLab();
+    if (tabId === 'policy-lab') {
+      if (!tabsInitialized['policy-lab']) {
+        tabsInitialized['policy-lab'] = true;
+        initPolicyLab();
+      }
+      checkDraft();
+      loadPolicyHistory();
     }
     if (tabId === 'monitor') {
       window.monitorConnect && window.monitorConnect();
@@ -1291,10 +1359,11 @@ let rulesList = [];
 async function loadControlPanel() {
   await loadStatus();
   try {
-    const [conf, dec, idv] = await Promise.all([
+    const [conf, dec, idv, ruleStats] = await Promise.all([
       apiFetch('/policies/confidence'),
       apiFetch('/policies/decisions'),
-      apiFetch('/policies/idvRouting')
+      apiFetch('/policies/idvRouting'),
+      apiFetch('/analytics/rules').catch(() => [])
     ]);
 
     // Risk bands
@@ -1324,7 +1393,7 @@ async function loadControlPanel() {
 
     // Policy rules
     rulesList = dec.rules || [];
-    renderRuleToggles(rulesList);
+    renderRuleToggles(rulesList, Array.isArray(ruleStats) ? ruleStats : (ruleStats && ruleStats.rules) || []);
 
     // Velocity toggle state
     const velocityEnabled = rulesList.find(r => r.id === 'deny_velocity_burst')?.enabled !== false;
@@ -1362,10 +1431,18 @@ function updateFormulaPreview(dw) {
     `confidence = (deviceScore/100 × ${dw}) + ((100−fraudScore)/100 × ${fw})`;
 }
 
-function renderRuleToggles(rules) {
+function renderRuleToggles(rules, ruleStats = []) {
+  const statsMap = new Map((ruleStats || []).map(s => [s.rule_id, s]));
+  const statusIcon = { healthy: '🟢', high_friction: '🟡', dormant: '⚫', dead: '🔴' };
+  const statusLabel = { healthy: 'healthy', high_friction: 'high friction', dormant: 'dormant', dead: 'no traffic' };
   const container = document.getElementById('ruleToggleList');
   container.innerHTML = rules.map((r, idx) => {
     const enabled = r.enabled !== false;
+    const stat = statsMap.get(r.id);
+    const healthDot = stat
+      ? `<span title="${statusLabel[stat.status] || stat.status} · fired ${stat.fired}× · ${stat.precision != null ? (stat.precision * 100).toFixed(0) + '% step-up precision' : 'no step-ups'}"
+               style="font-size:.8rem;cursor:default;user-select:none">${statusIcon[stat.status] || '⚪'}</span>`
+      : `<span style="font-size:.8rem;color:var(--text-muted);cursor:default" title="No data yet">⚪</span>`;
     return `<div class="rule-toggle-item ${enabled ? '' : 'disabled-rule'}" id="ruleItem_${idx}">
       <label class="toggle" title="${escHtml(r.description || '')}">
         <input type="checkbox" class="rule-toggle-cb" data-ruleid="${escHtml(r.id)}" ${enabled ? 'checked' : ''} onchange="onRuleToggle(this)">
@@ -1375,6 +1452,7 @@ function renderRuleToggles(rules) {
         <div class="rule-toggle-id">${escHtml(r.id)}</div>
         <div class="rule-toggle-desc">${escHtml(r.description || '')}</div>
       </div>
+      ${healthDot}
     </div>`;
   }).join('');
 }
@@ -2314,6 +2392,9 @@ async function initPolicyLab() {
     }
   });
 
+  // Save as draft
+  document.getElementById('plBtnSaveDraft').addEventListener('click', saveDraftPolicy);
+
   // Publish rule
   document.getElementById('plBtnPublish').addEventListener('click', async () => {
     if (!plCurrentRule) { showToast('No rule to publish', 'error'); return; }
@@ -2350,6 +2431,192 @@ function plRenderSimulation(simulation) {
   document.getElementById('plTransitions').innerHTML = plRenderTransitions(simulation.transitions);
   document.getElementById('plNeverFired').innerHTML = plRenderNeverFired(simulation.rules_never_fired);
   document.getElementById('plSamples').innerHTML = plRenderSamples(simulation.changed_samples);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Rule Performance (Phase 4)
+// ────────────────────────────────────────────────────────────────────────────
+
+async function loadRulePerformance() {
+  const el = document.getElementById('rulePerfContainer');
+  if (!el) return;
+  el.innerHTML = '<p class="no-data">Loading…</p>';
+  try {
+    const resp = await apiFetch('/analytics/rules?windowHours=48');
+    const stats = resp.rules || resp;
+    if (!stats || !stats.length) { el.innerHTML = '<p class="no-data">No rule data yet — run some decisions first.</p>'; return; }
+    const statusLabel = { healthy: 'healthy', high_friction: 'high friction', dormant: 'dormant', dead: 'no traffic' };
+    const rows = stats.map(s => {
+      const pct = s.precision != null ? `${(s.precision * 100).toFixed(0)}%` : '—';
+      const fr  = s.friction_rate != null ? `${(s.friction_rate * 100).toFixed(0)}%` : '—';
+      return `<tr>
+        <td>${escHtml(s.rule_id)}</td>
+        <td style="text-align:right">${s.fired.toLocaleString()}</td>
+        <td style="text-align:right">${s.step_ups_issued.toLocaleString()}</td>
+        <td style="text-align:right">${s.step_ups_completed.toLocaleString()}</td>
+        <td style="text-align:right">${pct}</td>
+        <td style="text-align:right">${fr}</td>
+        <td><span class="status-pill ${s.status}">${statusLabel[s.status] || s.status}</span></td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<table class="rule-perf-table">
+      <thead><tr>
+        <th>Rule ID</th><th style="text-align:right">Fired</th><th style="text-align:right">Step-ups</th>
+        <th style="text-align:right">Completed</th><th style="text-align:right">Precision</th>
+        <th style="text-align:right">Friction</th><th>Status</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (err) {
+    el.innerHTML = `<p class="no-data" style="color:var(--monzo-red)">Failed: ${escHtml(err.message)}</p>`;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Policy History + Draft (Phase 4)
+// ────────────────────────────────────────────────────────────────────────────
+
+async function loadPolicyHistory() {
+  const el = document.getElementById('plHistoryList');
+  if (!el) return;
+  el.innerHTML = '<p class="no-data">Loading…</p>';
+  try {
+    const resp = await apiFetch('/policies/decisions/history');
+    const versions = resp.versions || resp;
+    if (!versions || !versions.length) {
+      el.innerHTML = '<p class="no-data">No versions yet — publish a rule to start tracking history.</p>';
+      return;
+    }
+    el.innerHTML = versions.map(v => {
+      const ts = new Date(v.created_at).toLocaleString();
+      const simNote = v.simulation_summary?.note || (v.simulation_summary?.changed != null ? `${v.simulation_summary.changed} decisions changed` : '');
+      return `<div class="history-item">
+        <div class="history-item-header">
+          <span class="history-version">v${v.version_number}</span>
+          <span class="history-meta">${escHtml(v.author || 'system')} · ${escHtml(ts)}</span>
+          <span class="history-hash">${escHtml(v.content_hash || '')}</span>
+          <div style="margin-left:auto;display:flex;gap:.4rem">
+            <button class="btn btn-secondary btn-sm" onclick="showVersionDiff(${v.id})">Diff vs live</button>
+            <button class="btn btn-danger btn-sm" onclick="rollbackPolicy(${v.id}, ${v.version_number})">Rollback</button>
+          </div>
+        </div>
+        ${simNote ? `<div class="history-sim-note">${escHtml(simNote)}</div>` : ''}
+        ${v.rules_count != null ? `<div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">${v.rules_count} rule${v.rules_count !== 1 ? 's' : ''}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch (err) {
+    el.innerHTML = `<p class="no-data" style="color:var(--monzo-red)">Failed: ${escHtml(err.message)} — version history requires Postgres (DATABASE_URL).</p>`;
+  }
+}
+
+async function showVersionDiff(versionId) {
+  const panel = document.getElementById('plDiffPanel');
+  panel.style.display = 'block';
+  panel.innerHTML = 'Loading diff…';
+  try {
+    const [hist, current] = await Promise.all([
+      apiFetch(`/policies/decisions/history/${versionId}`),
+      apiFetch('/policies/decisions')
+    ]);
+    if (!hist || !hist.content) { panel.innerHTML = 'Version content not available.'; return; }
+
+    // Client-side diff: compare hist.content.rules vs current.rules
+    const rulesA = hist.content.rules || [];
+    const rulesB = current.rules || [];
+    const mapA = new Map(rulesA.map(r => [r.id, JSON.stringify(r)]));
+    const mapB = new Map(rulesB.map(r => [r.id, JSON.stringify(r)]));
+    const added    = rulesB.filter(r => !mapA.has(r.id));
+    const removed  = rulesA.filter(r => !mapB.has(r.id));
+    const modified = rulesB.filter(r => mapA.has(r.id) && mapA.get(r.id) !== JSON.stringify(r));
+    const unchanged = rulesB.filter(r => mapA.has(r.id) && mapA.get(r.id) === JSON.stringify(r)).length;
+
+    const parts = [];
+    if (added.length)    parts.push(`<span class="diff-added">+${added.length} rule(s) added in live</span>: ${added.map(r => escHtml(r.id)).join(', ')}`);
+    if (removed.length)  parts.push(`<span class="diff-removed">−${removed.length} rule(s) removed in live</span>: ${removed.map(r => escHtml(r.id)).join(', ')}`);
+    if (modified.length) parts.push(`<span class="diff-modified">~${modified.length} rule(s) changed</span>: ${modified.map(r => escHtml(r.id)).join(', ')}`);
+    if (unchanged)       parts.push(`<span style="color:var(--text-muted)">${unchanged} unchanged</span>`);
+    panel.innerHTML = `<p style="font-size:.78rem;margin:0 0 .5rem;color:var(--text-muted)">v${hist.version_number} (${new Date(hist.created_at).toLocaleString()}) vs current live:</p>` + (parts.length ? parts.join('<br>') : 'No differences — identical to live.');
+  } catch (err) {
+    panel.innerHTML = `<span style="color:var(--monzo-red)">Diff failed: ${escHtml(err.message)}</span>`;
+  }
+}
+
+async function rollbackPolicy(versionId, versionNumber) {
+  if (!confirm(`Roll back decisions policy to v${versionNumber}? This overwrites the live policy file.`)) return;
+  try {
+    const result = await apiFetch(`/policies/decisions/rollback/${versionId}`, { method: 'POST', body: JSON.stringify({}) });
+    showToast(`Rolled back to v${result.rolled_back_to_version} (new: v${result.new_version})`, 'success');
+    loadPolicyHistory();
+  } catch (err) {
+    showToast(`Rollback failed: ${err.message}`, 'error');
+  }
+}
+
+async function checkDraft() {
+  try {
+    const resp = await apiFetch('/policies/decisions/draft');
+    const banner = document.getElementById('plDraftBanner');
+    if (resp && resp.draft && banner) banner.style.display = 'flex';
+    else if (banner) banner.style.display = 'none';
+  } catch (_) {}
+}
+
+async function loadDraftIntoEditor() {
+  try {
+    const resp = await apiFetch('/policies/decisions/draft');
+    if (!resp || !resp.draft) { showToast('No draft found', 'error'); return; }
+    document.getElementById('plRuleJson').value = JSON.stringify(resp.draft, null, 2);
+    showToast('Draft loaded into editor', 'success');
+  } catch (err) {
+    showToast('Failed to load draft: ' + err.message, 'error');
+  }
+}
+
+async function saveDraftPolicy() {
+  const raw = document.getElementById('plRuleJson').value.trim();
+  if (!raw) { showToast('Nothing to save — paste a rule or full policy JSON first', 'error'); return; }
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (e) { showToast('Invalid JSON: ' + e.message, 'error'); return; }
+  try {
+    // If it's a single rule object (has id+condition+decision), wrap it into the full policy
+    let content = parsed;
+    if (parsed.id && parsed.condition && parsed.decision && !parsed.rules) {
+      const currentPolicy = await apiFetch('/policies/decisions');
+      const insertPosition = document.getElementById('plInsertPosition').value;
+      const newRules = insertPosition === 'top'
+        ? [parsed, ...currentPolicy.rules]
+        : [...currentPolicy.rules, parsed];
+      content = { ...currentPolicy, rules: newRules };
+    }
+    await apiFetch('/policies/decisions/draft', { method: 'POST', body: JSON.stringify(content) });
+    showToast('Saved as draft', 'success');
+    document.getElementById('plDraftBanner').style.display = 'flex';
+  } catch (err) {
+    showToast('Save draft failed: ' + err.message, 'error');
+  }
+}
+
+async function publishDraftPolicy() {
+  if (!confirm('Publish the current draft? This overwrites the live policy.')) return;
+  try {
+    const result = await apiFetch('/policies/decisions/publish', { method: 'POST', body: JSON.stringify({}) });
+    showToast(result.message || 'Draft published ✓', 'success');
+    document.getElementById('plDraftBanner').style.display = 'none';
+    loadPolicyHistory();
+  } catch (err) {
+    showToast('Publish failed: ' + err.message, 'error');
+  }
+}
+
+async function discardDraftPolicy() {
+  if (!confirm('Discard the draft? This cannot be undone.')) return;
+  try {
+    await apiFetch('/policies/decisions/draft', { method: 'DELETE' });
+    showToast('Draft discarded', 'success');
+    document.getElementById('plDraftBanner').style.display = 'none';
+  } catch (err) {
+    showToast('Discard failed: ' + err.message, 'error');
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

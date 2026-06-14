@@ -28,6 +28,8 @@ try { sheets = require('./data/sheets'); } catch (_) {}
 
 const enrichmentOrchestrator = require('./adapters/enrichmentOrchestrator');
 const attackScenarios = require('./scripts/attack-scenarios');
+const policyVersioning = require('./policyVersioning');
+const rulePerformance = require('./rulePerformance');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -175,6 +177,7 @@ app.patch('/policies/confidence', apiKey, async (req, res) => {
 
         writePolicyFile('confidence.json', merged);
         confidenceEngine.clearCache();
+        policyVersioning.saveVersion('confidence', merged, { author: req.apiKeyId || 'anonymous' }).catch(() => {});
 
         const sheetsResult = await maybeSyncToSheets(merged, req);
         res.json({ ok: true, policy: merged, ...(sheetsResult || {}) });
@@ -219,6 +222,8 @@ app.patch('/policies/decisions', apiKey, async (req, res) => {
 
         writePolicyFile('decisions.json', merged);
         policyEngine.clearCache();
+        rulePerformance.invalidateCache();
+        policyVersioning.saveVersion('decisions', merged, { author: req.apiKeyId || 'anonymous' }).catch(() => {});
 
         res.json({ ok: true, policy: merged });
     } catch (err) {
@@ -243,6 +248,8 @@ app.patch('/policies/idvRouting', apiKey, async (req, res) => {
 
         writePolicyFile('idvRouting.json', merged);
         idvRouting.clearCache();
+        policyVersioning.saveVersion('idvRouting', merged, { author: req.apiKeyId || 'anonymous' }).catch(() => {});
+
         res.json({ ok: true, policy: merged });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -332,6 +339,8 @@ app.post('/policies/velocity-toggle', apiKey, (req, res) => {
         );
         writePolicyFile('decisions.json', current);
         policyEngine.clearCache();
+        rulePerformance.invalidateCache();
+        policyVersioning.saveVersion('decisions', current, { author: req.apiKeyId || 'anonymous' }).catch(() => {});
         res.json({ ok: true, velocityEnabled: enabled });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -379,6 +388,10 @@ app.post('/trust/step-up/complete', async (req, res) => {
             outcome: stepOutcome,
             original_reference_id: reference_id,
         });
+
+        if (stepOutcome === 'APPROVED') {
+            store.addKnownDevice(session.customer_id, session.device_id).catch(() => {});
+        }
 
         await sessionStore.updateSession(reference_id, {
             status: 'COMPLETED',
@@ -492,6 +505,9 @@ app.post('/idv/webhook', async (req, res) => {
                 outcome: idvOutcome,
                 original_reference_id: session.reference_id,
             });
+            if (idvOutcome === 'APPROVED') {
+                store.addKnownDevice(session.customer_id, session.device_id).catch(() => {});
+            }
             return res.json({ ok: true, reference_id: session.reference_id, result, decision: 'STEP_UP', outcome: idvOutcome });
         } else {
             // FAIL or REVIEW — mark as failed/pending review
@@ -702,6 +718,155 @@ app.post('/dev/attack/:scenario', apiKey, async (req, res) => {
     res.json({ ok: true, scenario, payloads_queued: payloads.length });
 });
 
+// ─── Policy versioning ───────────────────────────────────────────────────────
+
+const VALID_POLICY_NAMES = ['decisions', 'confidence', 'idvRouting'];
+
+app.get('/policies/:name/history', async (req, res) => {
+    if (!VALID_POLICY_NAMES.includes(req.params.name)) return res.status(400).json({ error: 'Unknown policy' });
+    const versions = await policyVersioning.getVersions(req.params.name, parseInt(req.query.limit) || 20);
+    res.json({ policy_name: req.params.name, versions });
+});
+
+app.get('/policies/:name/history/:id', async (req, res) => {
+    if (!VALID_POLICY_NAMES.includes(req.params.name)) return res.status(400).json({ error: 'Unknown policy' });
+    const version = await policyVersioning.getVersion(req.params.name, req.params.id);
+    if (!version) return res.status(404).json({ error: 'Version not found' });
+    res.json(version);
+});
+
+app.post('/policies/:name/rollback/:id', apiKey, async (req, res) => {
+    if (!VALID_POLICY_NAMES.includes(req.params.name)) return res.status(400).json({ error: 'Unknown policy' });
+    try {
+        const result = await policyVersioning.rollback(req.params.name, req.params.id, { author: req.apiKeyId || 'anonymous' });
+        res.json(result);
+    } catch (err) {
+        res.status(err.statusCode || 500).json({ error: err.message });
+    }
+});
+
+app.get('/policies/:name/diff/:idA/:idB', async (req, res) => {
+    if (!VALID_POLICY_NAMES.includes(req.params.name)) return res.status(400).json({ error: 'Unknown policy' });
+    const [a, b] = await Promise.all([
+        policyVersioning.getVersion(req.params.name, req.params.idA),
+        policyVersioning.getVersion(req.params.name, req.params.idB),
+    ]);
+    if (!a || !b) return res.status(404).json({ error: 'One or both versions not found' });
+    res.json({ policy_name: req.params.name, version_a: a.version_number, version_b: b.version_number,
+               diff: policyVersioning.diffVersions(a.content, b.content) });
+});
+
+// ─── Policy draft / publish ───────────────────────────────────────────────────
+
+const DRAFT_FILE = path.join(__dirname, 'policies', 'draft_decisions.json');
+
+app.post('/policies/decisions/draft', apiKey, async (req, res) => {
+    try {
+        const proposed = req.body;
+        const schemaCheck = policyValidator.validate('decisions', proposed);
+        if (!schemaCheck.valid) return res.status(400).json({ error: 'Validation failed', validation_errors: schemaCheck.errors });
+        const semanticCheck = policyEngine.validateDecisionsConfig(proposed);
+        if (!semanticCheck.valid) return res.status(400).json({ error: 'Validation failed', validation_errors: semanticCheck.errors });
+        fs.writeFileSync(DRAFT_FILE, JSON.stringify(proposed, null, 2) + '\n', 'utf8');
+        res.json({ ok: true, message: 'Draft saved. Review via GET /policies/decisions/draft, then POST /policies/decisions/publish.' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/policies/decisions/draft', (req, res) => {
+    if (!fs.existsSync(DRAFT_FILE)) return res.json({ draft: null });
+    try {
+        const draft = JSON.parse(fs.readFileSync(DRAFT_FILE, 'utf8'));
+        const live  = readPolicyFile('decisions.json');
+        const diff  = policyVersioning.diffVersions(live, draft);
+        res.json({ draft, diff });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/policies/decisions/publish', apiKey, async (req, res) => {
+    if (!fs.existsSync(DRAFT_FILE)) return res.status(404).json({ error: 'No draft to publish' });
+    try {
+        const draft = JSON.parse(fs.readFileSync(DRAFT_FILE, 'utf8'));
+        writePolicyFile('decisions.json', draft);
+        policyEngine.clearCache();
+        rulePerformance.invalidateCache();
+        const simulationEngine = require('./simulationEngine');
+        let simulationSummary = null;
+        try {
+            const sim = await simulationEngine.simulate(draft, { limit: 200 });
+            simulationSummary = { total_replayed: sim.total_replayed, changed: sim.changed_count,
+                                  decision_mix_after: sim.decision_mix && sim.decision_mix.after };
+        } catch (_) {}
+        await policyVersioning.saveVersion('decisions', draft, {
+            author: req.apiKeyId || 'anonymous', simulationSummary
+        });
+        fs.unlinkSync(DRAFT_FILE);
+        res.json({ ok: true, message: 'Draft published as live policy.', simulation_summary: simulationSummary });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/policies/decisions/draft', apiKey, (req, res) => {
+    if (!fs.existsSync(DRAFT_FILE)) return res.json({ ok: true, message: 'No draft to delete' });
+    try { fs.unlinkSync(DRAFT_FILE); res.json({ ok: true }); }
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── Rule performance ─────────────────────────────────────────────────────────
+
+app.get('/analytics/rules', async (req, res) => {
+    try {
+        const windowHours = Math.min(parseInt(req.query.window) || 48, 168);
+        const stats = await rulePerformance.getRuleStats(windowHours);
+        res.json({ window_hours: windowHours, computed_at: Date.now(), rules: stats });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── Decision explain (customer-facing) ──────────────────────────────────────
+
+app.get('/trust/decision/explain/:reference_id', async (req, res) => {
+    const { reference_id } = req.params;
+    // Try session store first (works for recent decisions)
+    const session = await sessionStore.getSession(reference_id);
+    if (session && session.original_decision) {
+        const d = session.original_decision;
+        return res.json({
+            reference_id,
+            decision: d.decision,
+            step_up_type: d.step_up_type || null,
+            display_message: d.display_message || null,
+            reason: d.reason || null,
+            rule_id: d.trace && d.trace.policy ? d.trace.policy.ruleId : null,
+            timestamp: session.created_at,
+        });
+    }
+    // Fallback: Postgres lookup
+    if (db.isConfigured()) {
+        const result = await db.query(
+            'SELECT rule_id, decision, step_up_type, timestamp FROM decisions WHERE reference_id = $1 LIMIT 1',
+            [reference_id]
+        ).catch(() => null);
+        if (result && result.rows.length > 0) {
+            const row = result.rows[0];
+            // Best-effort: look up display_message from current policy
+            let display_message = null;
+            try {
+                const policy = readPolicyFile('decisions.json');
+                const rule = (policy.rules || []).find(r => r.id === row.rule_id);
+                if (rule) display_message = rule.display_message || null;
+            } catch (_) {}
+            return res.json({
+                reference_id,
+                decision: row.decision,
+                step_up_type: row.step_up_type || null,
+                display_message,
+                rule_id: row.rule_id,
+                timestamp: parseInt(row.timestamp, 10),
+                note: 'display_message sourced from current policy (session expired)',
+            });
+        }
+    }
+    return res.status(404).json({ error: 'Decision not found. Session may have expired.' });
+});
+
 // ─── System status ───────────────────────────────────────────────────────────
 
 app.get('/status', (req, res) => {
@@ -746,6 +911,9 @@ async function start() {
         }
     }
     if (allValid) console.log('✓ All policies valid');
+
+    // Background rule performance refresh every 30 minutes
+    setInterval(() => rulePerformance.getRuleStats().catch(() => {}), 30 * 60 * 1000);
 
     app.listen(PORT, () => {
         console.log(`Trust Decision server running at http://localhost:${PORT}`);

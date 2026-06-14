@@ -108,6 +108,27 @@ async function updateUserFraudScore(customerId, newScore) {
     return true;
 }
 
+/**
+ * Add a device to a user's known_device_ids list (max 20, drops oldest on overflow).
+ * Called after a successful step-up so the device becomes trusted on future decisions.
+ */
+async function addKnownDevice(customerId, deviceId) {
+    if (!customerId || !deviceId) return false;
+    const filePath = path.join(DATA_DIR, 'users.json');
+    const data = loadJSON('users.json');
+    if (!data || !data.users) return false;
+    const idx = data.users.findIndex(u => u.customer_id === customerId);
+    if (idx === -1) return false;
+    const user = data.users[idx];
+    const known = Array.isArray(user.known_device_ids) ? user.known_device_ids : [];
+    if (known.includes(deviceId)) return false; // already known
+    known.push(deviceId);
+    if (known.length > 20) known.shift(); // drop oldest
+    data.users[idx].known_device_ids = known;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    return true;
+}
+
 module.exports = {
     getUsers,
     getDevices,
@@ -118,6 +139,7 @@ module.exports = {
     getAuthenticatorById,
     getActionById,
     updateUserFraudScore,
+    addKnownDevice,
     useSheets,
     loadJSON
 };
