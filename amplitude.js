@@ -37,7 +37,8 @@ function initAmplitude() {
  *   geography: string|null,
  *   fraudScore: number,
  *   deviceScore: number,
- *   effectiveConfidence: number
+ *   effectiveConfidence: number,
+ *   velocity: { velocity_1m: number, velocity_5m: number, velocity_15m: number }|null
  * }} entry
  */
 function trackDecision(entry) {
@@ -58,6 +59,9 @@ function trackDecision(entry) {
                 device_score:         entry.deviceScore          ?? null,
                 effective_confidence: entry.effectiveConfidence  ?? null,
                 reference_id:         entry.reference_id         || null,
+                velocity_1m:          entry.velocity?.velocity_1m  ?? 0,
+                velocity_5m:          entry.velocity?.velocity_5m  ?? 0,
+                velocity_15m:         entry.velocity?.velocity_15m ?? 0,
             }
         });
     } catch (err) {

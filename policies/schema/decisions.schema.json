@@ -44,6 +44,8 @@
               "velocity_5m_gt":         { "type": "number", "minimum": 0 },
               "velocity_15m_gt":        { "type": "number", "minimum": 0 },
               "vpn_detected":           { "type": "boolean" },
+              "proxy_detected":         { "type": "boolean" },
+              "hosting_detected":       { "type": "boolean" },
               "tor_detected":           { "type": "boolean" },
               "email_breached":         { "type": "boolean" },
               "is_new_device":          { "type": "boolean" },

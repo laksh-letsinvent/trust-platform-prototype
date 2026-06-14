@@ -135,7 +135,8 @@ async function simulate(proposedConfig, opts = {}) {
             actionInfo,
             authenticatorInfo,
             currentAuthLevel: r.current_auth_level,
-            velocity: r.velocity
+            velocity: r.velocity,
+            enrichment: r.enrichment || null,
         });
 
         const before = policyEngine.evaluateWith(baselineConfig, context);

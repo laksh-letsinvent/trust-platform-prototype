@@ -100,6 +100,8 @@ function matchesCondition(condition, context) {
 
     // Intelligence enrichment conditions (Phase 2)
     if (condition.vpn_detected != null && (context.is_vpn || false) !== condition.vpn_detected) return false;
+    if (condition.proxy_detected != null && (context.is_proxy || false) !== condition.proxy_detected) return false;
+    if (condition.hosting_detected != null && (context.is_hosting || false) !== condition.hosting_detected) return false;
     if (condition.tor_detected != null && (context.is_tor || false) !== condition.tor_detected) return false;
     if (condition.email_breached != null && (context.email_breached || false) !== condition.email_breached) return false;
     if (condition.is_new_device != null && (context.is_new_device || false) !== condition.is_new_device) return false;
@@ -140,6 +142,8 @@ function conditionToSummary(condition) {
     if (condition.velocity_5m_gt != null) parts.push(`velocity_5m > ${condition.velocity_5m_gt}`);
     if (condition.velocity_15m_gt != null) parts.push(`velocity_15m > ${condition.velocity_15m_gt}`);
     if (condition.vpn_detected != null) parts.push(`vpn_detected = ${condition.vpn_detected}`);
+    if (condition.proxy_detected != null) parts.push(`proxy_detected = ${condition.proxy_detected}`);
+    if (condition.hosting_detected != null) parts.push(`hosting_detected = ${condition.hosting_detected}`);
     if (condition.tor_detected != null) parts.push(`tor_detected = ${condition.tor_detected}`);
     if (condition.email_breached != null) parts.push(`email_breached = ${condition.email_breached}`);
     if (condition.is_new_device != null) parts.push(`is_new_device = ${condition.is_new_device}`);
@@ -200,6 +204,10 @@ function explainCondition(condition, context) {
     // Intelligence enrichment conditions
     if (condition.vpn_detected != null)
         if (!check(`vpn_detected === ${condition.vpn_detected}`, (context.is_vpn || false) === condition.vpn_detected, context.is_vpn)) return steps;
+    if (condition.proxy_detected != null)
+        if (!check(`proxy_detected === ${condition.proxy_detected}`, (context.is_proxy || false) === condition.proxy_detected, context.is_proxy)) return steps;
+    if (condition.hosting_detected != null)
+        if (!check(`hosting_detected === ${condition.hosting_detected}`, (context.is_hosting || false) === condition.hosting_detected, context.is_hosting)) return steps;
     if (condition.tor_detected != null)
         if (!check(`tor_detected === ${condition.tor_detected}`, (context.is_tor || false) === condition.tor_detected, context.is_tor)) return steps;
     if (condition.email_breached != null)
@@ -300,7 +308,8 @@ const VALID_CONDITION_KEYS = [
     'confidenceMeetsAction', 'currentAuthLevelLessThan',
     'velocity_1m_gt', 'velocity_5m_gt', 'velocity_15m_gt',
     // Intelligence enrichment conditions (Phase 2)
-    'vpn_detected', 'tor_detected', 'email_breached', 'ato_signal_count_gte',
+    'vpn_detected', 'proxy_detected', 'hosting_detected',
+    'tor_detected', 'email_breached', 'ato_signal_count_gte',
     'ip_abuse_score_gte', 'is_new_device', 'is_greynoise_bot',
 ];
 

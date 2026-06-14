@@ -233,6 +233,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         fraudScore,
         deviceScore,
         effectiveConfidence: context.effectiveConfidence,
+        velocity: context.velocity || null,
     });
 
     return {
