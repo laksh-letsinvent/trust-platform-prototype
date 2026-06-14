@@ -168,6 +168,16 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
             reference_id,
             outcome: null,                      // null = primary decision record
             original_reference_id: analyticsExtra.original_reference_id || null,
+            caller_key_id: analyticsExtra.callerKeyId || null,
+            // Snapshot of raw signals at decision time, for policy simulation replay
+            replay: {
+                device_id,
+                current_auth_level: current_auth_level ?? null,
+                fraudScore,
+                deviceScore,
+                geography: context.geography,
+                velocity: context.velocity,
+            },
         });
     }
 

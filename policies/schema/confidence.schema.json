@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "version":          { "type": "string" },
+    "description":      { "type": "string" },
+    "defaultRiskLevel": { "type": "string" },
+    "riskLevelBands": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "fraudScoreMin": { "type": "number", "minimum": 0, "maximum": 100 },
+          "fraudScoreMax": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "riskLevelOrder": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "actionTierRequirements": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+    },
+    "actionTierRequiredAL": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "effectiveConfidence": {
+      "type": "object",
+      "required": ["deviceWeight", "fraudWeight"],
+      "properties": {
+        "deviceWeight":        { "type": "number", "minimum": 0, "maximum": 100 },
+        "fraudWeight":         { "type": "number", "minimum": 0, "maximum": 100 },
+        "useAuthenticatorMax": { "type": "boolean" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

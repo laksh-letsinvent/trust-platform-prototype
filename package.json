@@ -13,9 +13,12 @@
   "type": "commonjs",
   "dependencies": {
     "@amplitude/analytics-node": "^1.5.39",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "googleapis": "^171.4.0",
-    "ioredis": "^5.6.1"
+    "ioredis": "^5.6.1",
+    "pg": "^8.21.0"
   }
 }

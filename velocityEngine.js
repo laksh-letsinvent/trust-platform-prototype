@@ -69,8 +69,13 @@ function isAvailable() {
     return !!getClient();
 }
 
+function getStatus() {
+    return cache.getStatus();
+}
+
 module.exports = {
     recordRequest,
     getVelocity,
-    isAvailable
+    isAvailable,
+    getStatus
 };

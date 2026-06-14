@@ -7,6 +7,7 @@ const path = require('path');
 
 const { getDecision } = require('./decisionEngine');
 const cache = require('./cache');
+const db = require('./db');
 const store = require('./data/store');
 const analytics = require('./analytics');
 const confidenceEngine = require('./confidenceEngine');
@@ -14,8 +15,12 @@ const policyEngine = require('./policyEngine');
 const idvRouting = require('./idvRouting');
 const velocityEngine = require('./velocityEngine');
 const sessionStore = require('./sessionStore');
+const apiKey = require('./middleware/apiKey');
+const policyValidator = require('./policyValidator');
 
 const { initAmplitude, trackOutcome } = require('./amplitude');
+const simulationEngine = require('./simulationEngine');
+const copilot = require('./copilot');
 
 // Sheets is optional — only used for sync
 let sheets = null;
@@ -87,13 +92,16 @@ app.get('/data/authenticators', async (req, res) => {
 
 // ─── Trust decision ──────────────────────────────────────────────────────────
 
-app.post('/trust/decision', async (req, res) => {
+app.post('/trust/decision', apiKey, async (req, res) => {
     const { customer_id, action, device_id, current_auth_level } = req.body;
     if (!customer_id || !action || !device_id) {
         return res.status(400).json({ error: 'Missing required fields: customer_id, action, device_id' });
     }
     try {
-        const result = await getDecision({ customer_id, action, device_id, current_auth_level });
+        const result = await getDecision(
+            { customer_id, action, device_id, current_auth_level },
+            { callerKeyId: req.apiKeyId || null }
+        );
         res.json(result);
     } catch (err) {
         console.error(err);
@@ -115,23 +123,16 @@ app.delete('/analytics', (req, res) => {
 
 // ─── Decision log (JSONL file) ────────────────────────────────────────────────
 
-app.get('/decisions', (req, res) => {
-    const logFile = path.join(__dirname, 'decisions.jsonl');
+app.get('/decisions', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
     const offset = parseInt(req.query.offset) || 0;
-    const filterCustomer = req.query.customer_id || null;
-    const filterDecision = req.query.decision || null;
-
     try {
-        if (!fs.existsSync(logFile)) return res.json({ total: 0, decisions: [] });
-        const lines = fs.readFileSync(logFile, 'utf8').split('\n').filter(Boolean);
-        let rows = lines.map(l => { try { return JSON.parse(l); } catch (_) { return null; } }).filter(Boolean);
-        if (filterCustomer) rows = rows.filter(r => r.customer_id === filterCustomer);
-        if (filterDecision) rows = rows.filter(r => r.decision === filterDecision);
-        // Most recent first
-        rows.reverse();
-        const total = rows.length;
-        const decisions = rows.slice(offset, offset + limit);
+        const { total, decisions } = await analytics.getDecisions({
+            limit,
+            offset,
+            customerFilter: req.query.customer_id || null,
+            decisionFilter: req.query.decision || null,
+        });
         res.json({ total, limit, offset, decisions });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -145,7 +146,7 @@ app.get('/policies/confidence', (req, res) => {
     catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.patch('/policies/confidence', async (req, res) => {
+app.patch('/policies/confidence', apiKey, async (req, res) => {
     try {
         const current = readPolicyFile('confidence.json');
         const merged = deepMerge(current, req.body);
@@ -157,6 +158,9 @@ app.patch('/policies/confidence', async (req, res) => {
                 return res.status(400).json({ error: 'deviceWeight + fraudWeight must equal 100' });
             }
         }
+
+        const { valid, errors } = policyValidator.validate('confidence', merged);
+        if (!valid) return res.status(400).json({ error: 'Policy validation failed', validation_errors: errors });
 
         writePolicyFile('confidence.json', merged);
         confidenceEngine.clearCache();
@@ -175,7 +179,7 @@ app.get('/policies/decisions', (req, res) => {
     catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.patch('/policies/decisions', async (req, res) => {
+app.patch('/policies/decisions', apiKey, async (req, res) => {
     try {
         const current = readPolicyFile('decisions.json');
 
@@ -196,6 +200,12 @@ app.patch('/policies/decisions', async (req, res) => {
         const merged = deepMerge(current, restPatch);
         if (Array.isArray(current.rules)) merged.rules = current.rules;
 
+        const schemaCheck = policyValidator.validate('decisions', merged);
+        if (!schemaCheck.valid) return res.status(400).json({ error: 'Policy validation failed', validation_errors: schemaCheck.errors });
+
+        const semanticCheck = policyEngine.validateDecisionsConfig(merged);
+        if (!semanticCheck.valid) return res.status(400).json({ error: 'Policy validation failed', validation_errors: semanticCheck.errors });
+
         writePolicyFile('decisions.json', merged);
         policyEngine.clearCache();
 
@@ -212,10 +222,14 @@ app.get('/policies/idvRouting', (req, res) => {
     catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.patch('/policies/idvRouting', async (req, res) => {
+app.patch('/policies/idvRouting', apiKey, async (req, res) => {
     try {
         const current = readPolicyFile('idvRouting.json');
         const merged = deepMerge(current, req.body);
+
+        const { valid, errors } = policyValidator.validate('idvRouting', merged);
+        if (!valid) return res.status(400).json({ error: 'Policy validation failed', validation_errors: errors });
+
         writePolicyFile('idvRouting.json', merged);
         idvRouting.clearCache();
         res.json({ ok: true, policy: merged });
@@ -224,9 +238,77 @@ app.patch('/policies/idvRouting', async (req, res) => {
     }
 });
 
+// ─── Policy simulation ───────────────────────────────────────────────────────
+
+/**
+ * POST /policies/simulate
+ * Body: { rules, default, ... }  — full proposed decisions config
+ * Optional query: ?limit=500
+ *
+ * Replays recent decision history against the proposed config side-by-side with
+ * the current live config and returns decision-mix before/after, transition
+ * counts, per-rule firing rates, and up to 20 changed-decision samples.
+ * Nothing is written to disk — this is purely read+compute.
+ */
+app.post('/policies/simulate', apiKey, async (req, res) => {
+    try {
+        const proposed = req.body;
+        if (!proposed || typeof proposed !== 'object') {
+            return res.status(400).json({ error: 'Body must be a decisions config object ({ rules, default })' });
+        }
+        const result = await simulationEngine.simulate(proposed, {
+            limit: req.query.limit
+        });
+        res.json(result);
+    } catch (err) {
+        if (err.statusCode === 400) {
+            return res.status(400).json({ error: err.message, validation_errors: err.validationErrors });
+        }
+        console.error('Simulation error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── AI Policy Copilot ───────────────────────────────────────────────────────
+
+/**
+ * POST /policies/copilot
+ * Body: { intent: "deny medium risk customers on wire transfers" }
+ * Optional: { insert_position: "top"|"bottom", simulation_limit: 500 }
+ *
+ * Returns: { rule, validation, simulation, note }
+ * Nothing is written — publish separately via PATCH /policies/decisions.
+ * Requires ANTHROPIC_API_KEY env var; returns 501 without it.
+ */
+app.post('/policies/copilot', apiKey, async (req, res) => {
+    const { intent, insert_position, simulation_limit } = req.body || {};
+    if (!intent) {
+        return res.status(400).json({ error: 'Body must contain { intent: "..." }' });
+    }
+    try {
+        const result = await copilot.suggest(intent, {
+            insertPosition: insert_position,
+            simulationLimit: simulation_limit
+        });
+        res.json(result);
+    } catch (err) {
+        if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+        console.error('Copilot error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /policies/copilot/status
+ * Returns whether the AI copilot is available (ANTHROPIC_API_KEY set).
+ */
+app.get('/policies/copilot/status', (req, res) => {
+    res.json({ available: copilot.isAvailable() });
+});
+
 // ─── Velocity toggle ─────────────────────────────────────────────────────────
 
-app.post('/policies/velocity-toggle', (req, res) => {
+app.post('/policies/velocity-toggle', apiKey, (req, res) => {
     try {
         const { enabled } = req.body;
         if (typeof enabled !== 'boolean') {
@@ -548,7 +630,9 @@ app.get('/status', (req, res) => {
     res.json({
         redis: cache.cacheAvailable,
         velocityTracking: velocityEngine.isAvailable(),
-        sheetsConfigured: sheets ? sheets.isConfigured() : false
+        sheetsConfigured: sheets ? sheets.isConfigured() : false,
+        redis_status: velocityEngine.getStatus(),
+        postgres_status: db.getStatus(),
     });
 });
 
@@ -556,12 +640,32 @@ app.get('/status', (req, res) => {
 
 async function start() {
     await cache.connect();
+    await db.init();
     await sessionStore.syncFromRedis();
     initAmplitude();
+
+    // Validate all policy files on startup — warn but don't crash
+    const POLICY_MAP = { decisions: 'decisions.json', confidence: 'confidence.json', idvRouting: 'idvRouting.json' };
+    let allValid = true;
+    for (const [name, file] of Object.entries(POLICY_MAP)) {
+        try {
+            const content = readPolicyFile(file);
+            const { valid, errors } = policyValidator.validate(name, content);
+            if (!valid) {
+                console.warn(`⚠ Policy validation warning (${name}):`, errors);
+                allValid = false;
+            }
+        } catch (err) {
+            console.warn(`⚠ Could not validate policy ${name}:`, err.message);
+        }
+    }
+    if (allValid) console.log('✓ All policies valid');
+
     app.listen(PORT, () => {
         console.log(`Trust Decision server running at http://localhost:${PORT}`);
         console.log(`Redis cache: ${cache.cacheAvailable ? 'enabled' : 'disabled (no Redis)'}`);
         console.log(`Velocity tracking: ${velocityEngine.isAvailable() ? 'active' : 'inactive (no Redis)'}`);
+        console.log(`Postgres: ${db.isConfigured() ? (db.getStatus().connected ? 'connected' : 'configured but unavailable') : 'not configured (JSONL fallback)'}`);
         if (sheets) console.log(`Google Sheets: ${sheets.isConfigured() ? 'configured' : 'not configured'}`);
     });
 }

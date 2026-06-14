@@ -11,6 +11,7 @@ const DEVICE_TTL_SEC = parseInt(process.env.CACHE_DEVICE_TTL_SEC || '600', 10); 
 
 let client = null;
 let cacheAvailable = false;
+let lastError = null;
 
 async function connect() {
     if (client) return cacheAvailable;
@@ -25,11 +26,15 @@ async function connect() {
             lazyConnect: true
         });
         await client.connect();
-        client.on('error', (err) => console.warn('Redis error:', err.message));
+        client.on('error', (err) => {
+            lastError = err.message;
+            console.warn('Redis error:', err.message);
+        });
         cacheAvailable = true;
         return true;
     } catch (err) {
-        console.warn('Redis unavailable, running without cache:', err.message);
+        lastError = err.message;
+        console.warn('⚠ Redis unavailable — velocity rules disabled:', err.message);
         client = null;
         cacheAvailable = false;
         return false;
@@ -129,6 +134,10 @@ function getClient() {
     return cacheAvailable ? client : null;
 }
 
+function getStatus() {
+    return { connected: cacheAvailable, last_error: lastError };
+}
+
 module.exports = {
     connect,
     close,
@@ -140,5 +149,6 @@ module.exports = {
     setCachedDeviceScore,
     bustFraudScore,
     getClient,
+    getStatus,
     get cacheAvailable() { return cacheAvailable; }
 };

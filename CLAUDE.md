@@ -72,6 +72,15 @@ POST /trust/decision
   → analytics.js        (records decision to in-memory ring buffer + decisions.jsonl)
 ```
 
+### Phase 1 additions
+
+- **`db.js`** — Postgres pool (optional). Exports `init()`, `query()`, `isConfigured()`, `getStatus()`. No-op (returns null) when `DATABASE_URL` not set.
+- **`middleware/apiKey.js`** — API key auth. Reads `X-API-Key` header, checks against `API_KEYS` env var (comma-separated). No-op when `API_KEYS` not set. Sets `req.apiKeyId` (first 8 chars, never full key). Applied to all mutation endpoints.
+- **`policyValidator.js`** — AJV v8 structural validation for policy files. `validate(policyName, content)` → `{ valid, errors }`. Schemas live in `policies/schema/`. Warns on startup, hard-fails on PATCH.
+- **`scripts/migrate-jsonl-to-pg.js`** — One-shot migration of `decisions.jsonl` → Postgres. Safe to re-run.
+
+**Dual-write strategy:** `analytics.record()` writes to JSONL (synchronous primary) and fires a Postgres insert (async, fire-and-forget). `GET /decisions` queries Postgres when configured, falls back to JSONL streaming. `GET /analytics` always uses the in-memory ring buffer.
+
 ### Key design principles
 
 **Policy-driven, not code-driven.** All risk bands, confidence formulas, and decision rules live in `policies/*.json`, not in code. Changing behavior means editing JSON, not JavaScript.
@@ -102,7 +111,7 @@ Each policy module (`confidenceEngine`, `policyEngine`, `idvRouting`) caches its
 
 ### Decision log
 
-Every decision is written to `decisions.jsonl` (append-only JSONL) and an in-memory ring buffer (last 500). `GET /decisions` reads from the file; `GET /analytics` aggregates the ring buffer. The comment in `analytics.js` notes the Postgres upgrade path.
+Every decision is written to `decisions.jsonl` (append-only JSONL) and an in-memory ring buffer (last 500). When `DATABASE_URL` is set, decisions are also inserted into Postgres asynchronously (fire-and-forget). `GET /decisions` queries Postgres when configured, otherwise streams JSONL. `GET /analytics` always aggregates the in-memory ring buffer. Decision records include a `caller_key_id` field (first 8 chars of the API key used, or null).
 
 ### Adapters (`adapters/`)
 
@@ -118,9 +127,33 @@ Every decision is written to `decisions.jsonl` (append-only JSONL) and an in-mem
 | GET/PATCH | `/policies/decisions` | Decision rules (PATCH merges rules by `id`) |
 | GET/PATCH | `/policies/idvRouting` | IDV routing policy |
 | POST | `/policies/velocity-toggle` | Toggle velocity rules on/off. Body: `{ "enabled": true\|false }` |
+| POST | `/policies/simulate` | Replay decision history against a proposed decisions config (read-only). Body: full decisions config `{ rules, default }`. Query: `?limit=`. |
+| POST | `/policies/copilot` | NL → rule + simulation. Body: `{ intent, insert_position?, simulation_limit? }`. Requires `ANTHROPIC_API_KEY`. Returns `{ rule, validation, simulation, note }`. |
+| GET | `/policies/copilot/status` | Whether AI copilot is available (ANTHROPIC_API_KEY set). |
 | GET | `/analytics` | Aggregated decision stats (optional `?customer_id=` filter) |
 | DELETE | `/analytics` | Clear in-memory ring buffer |
 | GET | `/decisions` | Paginated decision log from JSONL. Params: `limit`, `offset`, `customer_id`, `decision` |
 | GET | `/status` | Redis/velocity/Sheets availability |
 
-The frontend (`public/index.html`) is a single-page app served statically.
+The frontend (`public/index.html`) is a single-page app served statically. Five tabs: Decision Simulator, Control Panel, Analytics, Review Queue, Policy Lab.
+
+### Policy Lab (`simulationEngine.js`, `copilot.js`)
+
+`simulationEngine.js` — streams `decisions.jsonl`, rebuilds context from the `replay` snapshot attached to each primary decision record, evaluates both the current and proposed config on identical contexts, and returns before/after decision mix, a transition matrix, per-rule firing counts, never-fired rules, and up to 20 changed-decision samples.
+
+`copilot.js` — calls Claude API (`claude-opus-4-8`), receives a rule JSON, validates it via `policyEngine.validateDecisionsConfig`, then auto-simulates. Returns without writing anything; the caller publishes via `PATCH /policies/decisions`. Requires `ANTHROPIC_API_KEY`; exports `isAvailable()` for the status endpoint.
+
+**Seed simulation history:**
+```bash
+node scripts/generate-traffic.js              # 500 records
+node scripts/generate-traffic.js --count 2000
+node scripts/generate-traffic.js --dry-run
+```
+
+### Decision log replay snapshots
+
+`analytics.js` `record()` now stores a `replay` field on each primary decision record (outcome === null). Shape:
+```json
+{ "device_id", "current_auth_level", "fraudScore", "deviceScore", "geography", "velocity" }
+```
+Records without `replay` (written before this change) are skipped by the simulator — they're counted in `skipped_no_snapshot`.

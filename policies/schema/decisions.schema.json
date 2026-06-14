@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["rules", "default"],
+  "properties": {
+    "version":     { "type": "string" },
+    "description": { "type": "string" },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "decision"],
+        "additionalProperties": false,
+        "properties": {
+          "id":          { "type": "string" },
+          "enabled":     { "type": "boolean" },
+          "description": { "type": "string" },
+          "reason":      { "type": "string" },
+          "decision": {
+            "type": "string",
+            "enum": ["ALLOW", "STEP_UP", "DENY", "MANUAL_REVIEW"]
+          },
+          "step_up_type": {
+            "type": "string",
+            "enum": ["PASSCODE", "PASSKEY", "SELFIE", "IDV", "AL_PLUS_1", "REQUIRED_AL"]
+          },
+          "condition": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fraudScoreMin":          { "type": "number", "minimum": 0, "maximum": 100 },
+              "fraudScoreMax":          { "type": "number", "minimum": 0, "maximum": 100 },
+              "deviceScoreMin":         { "type": "number", "minimum": 0, "maximum": 100 },
+              "deviceScoreMax":         { "type": "number", "minimum": 0, "maximum": 100 },
+              "riskLevel":              { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+              "geography":              { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+              "actionTier":             { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+              "requiredAL":             { "type": "string" },
+              "alMeetsRequired":        { "type": "boolean" },
+              "confidenceMeetsAction":  { "type": "boolean" },
+              "currentAuthLevelLessThan": { "type": "string" },
+              "velocity_1m_gt":         { "type": "number", "minimum": 0 },
+              "velocity_5m_gt":         { "type": "number", "minimum": 0 },
+              "velocity_15m_gt":        { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "default": {
+      "type": "object",
+      "required": ["decision"],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["ALLOW", "STEP_UP", "DENY", "MANUAL_REVIEW"]
+        },
+        "step_up_type": {
+          "type": "string",
+          "enum": ["PASSCODE", "PASSKEY", "SELFIE", "IDV", "AL_PLUS_1", "REQUIRED_AL"]
+        },
+        "reason": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": true
+}
