@@ -417,6 +417,8 @@
     </div>
     <div class="header-badges" id="headerBadges">
       <span class="badge badge-muted" id="badgeRedis"><span class="badge-dot"></span>Redis —</span>
+      <span class="badge badge-muted" id="badgePostgres"><span class="badge-dot"></span>Postgres —</span>
+      <span class="badge badge-muted" id="badgeAdapters"><span class="badge-dot"></span>Adapters —</span>
       <span class="badge badge-muted" id="badgeSheets"><span class="badge-dot"></span>Sheets —</span>
       <button id="themeToggle" class="btn btn-secondary btn-sm" title="Toggle light/dark theme">☀</button>
     </div>
@@ -608,6 +610,11 @@
 
     <div id="statusBar" class="status-bar">
       <span class="status-item"><span class="status-dot" id="sdRedis"></span><span class="status-label">Redis:</span> <span id="sdRedisLabel">—</span></span>
+      <span class="status-item"><span class="status-dot" id="sdPostgres"></span><span class="status-label">Postgres:</span> <span id="sdPostgresLabel">—</span></span>
+      <span class="status-item"><span class="status-dot" id="sdIpGeo"></span><span class="status-label">IP Geo:</span> <span id="sdIpGeoLabel">—</span></span>
+      <span class="status-item"><span class="status-dot" id="sdGreynoise"></span><span class="status-label">GreyNoise:</span> <span id="sdGreynoiseLabel">—</span></span>
+      <span class="status-item"><span class="status-dot" id="sdAbuseipdb"></span><span class="status-label">AbuseIPDB:</span> <span id="sdAbuseipdbLabel">—</span></span>
+      <span class="status-item"><span class="status-dot" id="sdHibp"></span><span class="status-label">HIBP:</span> <span id="sdHibpLabel">—</span></span>
       <span class="status-item"><span class="status-dot" id="sdSheets"></span><span class="status-label">Sheets:</span> <span id="sdSheetsLabel">—</span></span>
       <label class="toggle-wrap" style="margin-left:auto;">
         <span class="toggle-label" style="font-size:.78rem;color:var(--text-muted);">Sync to Sheets</span>
@@ -998,19 +1005,37 @@ async function loadStatus() {
   try {
     const s = await apiFetch('/status');
     // Header badges
+    // Header badges
     const badgeRedis = document.getElementById('badgeRedis');
     badgeRedis.className = `badge ${s.redis ? 'badge-green' : 'badge-muted'}`;
     badgeRedis.innerHTML = `<span class="badge-dot"></span>Redis ${s.redis ? 'Active' : 'Off'}`;
 
+    const pgOk = s.postgres_status && s.postgres_status.connected;
+    const badgePostgres = document.getElementById('badgePostgres');
+    badgePostgres.className = `badge ${pgOk ? 'badge-green' : 'badge-muted'}`;
+    badgePostgres.innerHTML = `<span class="badge-dot"></span>Postgres ${pgOk ? 'Connected' : 'Off'}`;
+
+    const adp = s.adapters || {};
+    const adpCount = [adp.ip_geolocation, adp.greynoise, adp.abuse_ipdb, adp.hibp].filter(Boolean).length;
+    const badgeAdapters = document.getElementById('badgeAdapters');
+    badgeAdapters.className = `badge ${adpCount >= 2 ? 'badge-green' : adpCount >= 1 ? 'badge-orange' : 'badge-muted'}`;
+    badgeAdapters.innerHTML = `<span class="badge-dot"></span>Adapters ${adpCount}/4`;
+
     const badgeSheets = document.getElementById('badgeSheets');
     badgeSheets.className = `badge ${s.sheetsConfigured ? 'badge-green' : 'badge-muted'}`;
-    badgeSheets.innerHTML = `<span class="badge-dot"></span>Sheets ${s.sheetsConfigured ? 'Connected' : 'Not configured'}`;
+    badgeSheets.innerHTML = `<span class="badge-dot"></span>Sheets ${s.sheetsConfigured ? 'Connected' : 'Off'}`;
 
     // Control panel status bar
-    document.getElementById('sdRedis').className = `status-dot ${s.redis ? 'active' : 'inactive'}`;
-    document.getElementById('sdRedisLabel').textContent = s.redis ? 'Connected' : 'Not connected';
-    document.getElementById('sdSheets').className = `status-dot ${s.sheetsConfigured ? 'active' : 'inactive'}`;
-    document.getElementById('sdSheetsLabel').textContent = s.sheetsConfigured ? 'Configured' : 'Not configured';
+    const dot = (id, on) => document.getElementById(id).className = `status-dot ${on ? 'active' : 'inactive'}`;
+    const lbl = (id, txt) => document.getElementById(id).textContent = txt;
+
+    dot('sdRedis', s.redis);         lbl('sdRedisLabel', s.redis ? 'Connected' : 'Not connected');
+    dot('sdPostgres', pgOk);         lbl('sdPostgresLabel', pgOk ? 'Connected' : (s.postgres_status?.last_error ? 'Error' : 'Not configured'));
+    dot('sdIpGeo', adp.ip_geolocation);       lbl('sdIpGeoLabel', adp.ip_geolocation ? 'Active' : 'Off');
+    dot('sdGreynoise', adp.greynoise);         lbl('sdGreynoiseLabel', adp.greynoise ? 'Active' : 'Off');
+    dot('sdAbuseipdb', adp.abuse_ipdb);        lbl('sdAbuseipdbLabel', adp.abuse_ipdb ? 'Key set' : 'No key');
+    dot('sdHibp', adp.hibp);                   lbl('sdHibpLabel', adp.hibp ? 'Key set' : 'No key');
+    dot('sdSheets', s.sheetsConfigured);       lbl('sdSheetsLabel', s.sheetsConfigured ? 'Configured' : 'Not configured');
 
     // Velocity note
     const note = document.getElementById('velocityRedisNote');
@@ -1052,8 +1077,7 @@ document.getElementById('btnDecide').addEventListener('click', runDecision);
 
 async function runDecision() {
   const customer_id = document.getElementById('selCustomer').value;
-  const selectedDeviceId = document.getElementById('selDevice').value;
-  const device_id = window.visitorId || selectedDeviceId;
+  const device_id = document.getElementById('selDevice').value;
   const action = document.getElementById('selAction').value;
   const current_auth_level = document.getElementById('selAuthLevel').value || null;
 
@@ -1121,7 +1145,12 @@ function renderOutcome(result) {
   badge.style.animation = '';
 
   const meta = document.getElementById('outcomeMeta');
-  let html = `<div class="outcome-meta-row"><span class="outcome-meta-label">Reason</span><span class="outcome-meta-value" style="font-size:.82rem;color:var(--text-muted);">${escHtml(result.reason || '—')}</span></div>`;
+  let html = '';
+  if (result.display_message) {
+    const msgColour = result.decision === 'DENY' ? 'var(--monzo-red)' : result.decision === 'STEP_UP' ? 'var(--monzo-orange)' : result.decision === 'MANUAL_REVIEW' ? 'var(--monzo-purple)' : 'var(--monzo-green)';
+    html += `<div style="margin-bottom:.75rem;padding:.6rem .85rem;border-radius:var(--radius-sm);background:rgba(255,255,255,.04);border-left:3px solid ${msgColour};font-size:.88rem;color:var(--text);">${escHtml(result.display_message)}</div>`;
+  }
+  html += `<div class="outcome-meta-row"><span class="outcome-meta-label">Reason</span><span class="outcome-meta-value" style="font-size:.82rem;color:var(--text-muted);">${escHtml(result.reason || '—')}</span></div>`;
   if (result.step_up_type) {
     html += `<div class="outcome-meta-row"><span class="outcome-meta-label">Step-up</span><span class="outcome-meta-value">${escHtml(result.step_up_type)}</span></div>`;
   }

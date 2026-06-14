@@ -2,59 +2,80 @@
   "users": [
     {
       "customer_id": "Lara",
-      "fraud_score": 15,
+      "fraud_score": 12,
       "geography": "UK",
       "email": "lara@example.com",
-      "known_device_ids": []
+      "known_device_ids": ["Device1", "Device2"]
     },
     {
       "customer_id": "Lenny",
-      "fraud_score": 22,
+      "fraud_score": 18,
       "geography": "UK",
       "email": "lenny@example.com",
-      "known_device_ids": []
+      "known_device_ids": ["Device2", "Device3"]
+    },
+    {
+      "customer_id": "Maxim",
+      "fraud_score": 8,
+      "geography": "UK",
+      "email": "maxim@example.com",
+      "known_device_ids": ["Device1", "Device6"]
+    },
+    {
+      "customer_id": "Alice",
+      "fraud_score": 14,
+      "geography": "UK",
+      "email": "alice@example.com",
+      "known_device_ids": ["Device3", "Device6"]
+    },
+    {
+      "customer_id": "Ben",
+      "fraud_score": 11,
+      "geography": "UK",
+      "email": "ben@example.com",
+      "known_device_ids": ["Device1"]
     },
     {
       "customer_id": "Jason",
       "fraud_score": 28,
       "geography": "DE",
       "email": "jason@example.com",
-      "known_device_ids": []
+      "known_device_ids": ["Device3", "Device4", "Device6"]
     },
     {
-      "customer_id": "Maxim",
-      "fraud_score": 10,
-      "geography": "UK",
-      "email": "maxim@example.com",
-      "known_device_ids": []
-    },
-    {
-      "customer_id": "Maddy",
-      "fraud_score": 10,
+      "customer_id": "Nikky",
+      "fraud_score": 38,
       "geography": "DE",
-      "email": "maddy@example.com",
-      "known_device_ids": []
+      "email": "nikky@example.com",
+      "known_device_ids": ["Device4", "Device5", "Device7"]
+    },
+    {
+      "customer_id": "Sofia",
+      "fraud_score": 42,
+      "geography": "FR",
+      "email": "sofia@example.com",
+      "known_device_ids": ["Device5", "Device6", "Device7"]
+    },
+    {
+      "customer_id": "Carlos",
+      "fraud_score": 47,
+      "geography": "DE",
+      "email": "carlos@example.com",
+      "known_device_ids": ["Device4", "Device7"]
     },
     {
       "customer_id": "Harvey",
       "fraud_score": 80,
       "geography": "UK",
       "email": "harvey@example.com",
-      "known_device_ids": []
+      "known_device_ids": ["Device5", "Device7", "unknown-device-hv1"]
     },
     {
       "customer_id": "Hitesh",
       "fraud_score": 90,
       "geography": "UK",
       "email": "hitesh@example.com",
-      "known_device_ids": []
-    },
-    {
-      "customer_id": "Nikky",
-      "fraud_score": 40,
-      "geography": "DE",
-      "email": "nikky@example.com",
-      "known_device_ids": []
+      "known_device_ids": ["unknown-device-ht1", "unknown-device-ht2"]
     }
   ]
 }

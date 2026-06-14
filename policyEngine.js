@@ -268,6 +268,7 @@ function evaluateWith(config, context) {
                 decision: rule.decision,
                 step_up_type: resolvedStepUpType,
                 reason: rule.reason ?? '',
+                display_message: rule.display_message ?? null,
                 ruleId: rule.id,
                 trace
             };
@@ -283,6 +284,7 @@ function evaluateWith(config, context) {
         decision: defaultResult.decision,
         step_up_type: defaultStepUpType,
         reason: defaultResult.reason ?? '',
+        display_message: defaultResult.display_message ?? null,
         ruleId: null,
         trace
     };
