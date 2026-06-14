@@ -27,9 +27,17 @@ let sheets = null;
 try { sheets = require('./data/sheets'); } catch (_) {}
 
 const enrichmentOrchestrator = require('./adapters/enrichmentOrchestrator');
+const attackScenarios = require('./scripts/attack-scenarios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ─── SSE clients ─────────────────────────────────────────────────────────────
+const sseClients = new Map();
+const MAX_SSE_CLIENTS = 20;
+
+const ATTACK_TRIGGERS_ENABLED =
+    process.env.ENABLE_ATTACK_TRIGGERS === 'true' || process.env.NODE_ENV !== 'production';
 
 app.set('trust proxy', 1); // trust Caddy/nginx forwarded IP
 app.use(express.json());
@@ -627,6 +635,73 @@ app.post('/trust/review/:reference_id/feedback', async (req, res) => {
     }
 });
 
+// ─── Server-Sent Events ──────────────────────────────────────────────────────
+
+analytics.analyticsEmitter.on('decision', (row) => {
+    const payload = `data: ${JSON.stringify(row)}\n\n`;
+    for (const [, res] of sseClients) {
+        try { res.write(payload); } catch (_) {}
+    }
+});
+
+app.get('/events/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.flushHeaders();
+
+    // Enforce max client limit — drop the oldest connection if exceeded
+    if (sseClients.size >= MAX_SSE_CLIENTS) {
+        const [oldestId] = sseClients.keys();
+        try { sseClients.get(oldestId).end(); } catch (_) {}
+        sseClients.delete(oldestId);
+    }
+
+    const clientId = Date.now() + Math.random();
+    sseClients.set(clientId, res);
+
+    const heartbeat = setInterval(() => {
+        try { res.write(': heartbeat\n\n'); } catch (_) {}
+    }, 15000);
+
+    req.on('close', () => {
+        sseClients.delete(clientId);
+        clearInterval(heartbeat);
+    });
+});
+
+// ─── Attack trigger (dev/demo only) ─────────────────────────────────────────
+
+app.post('/dev/attack/:scenario', apiKey, async (req, res) => {
+    if (!ATTACK_TRIGGERS_ENABLED) {
+        return res.status(403).json({ error: 'Attack triggers disabled. Set ENABLE_ATTACK_TRIGGERS=true.' });
+    }
+    const { scenario } = req.params;
+    if (!attackScenarios.SCENARIO_NAMES.includes(scenario)) {
+        return res.status(400).json({ error: `Unknown scenario. Valid: ${attackScenarios.SCENARIO_NAMES.join(', ')}` });
+    }
+
+    const personas = (() => { try { return require('./data/personas.json').personas; } catch (_) { return []; } })();
+    const payloads = attackScenarios[scenario](personas);
+
+    // Fire asynchronously so the endpoint returns immediately
+    setImmediate(async () => {
+        for (const payload of payloads) {
+            try {
+                await getDecision(
+                    { customer_id: payload.customer_id, action: payload.action, device_id: payload.device_id, ip: null },
+                    { callerKeyId: 'attack-trigger' }
+                );
+            } catch (_) {}
+            // Small gap between payloads to produce visible velocity signal
+            await new Promise(r => setTimeout(r, 200));
+        }
+    });
+
+    res.json({ ok: true, scenario, payloads_queued: payloads.length });
+});
+
 // ─── System status ───────────────────────────────────────────────────────────
 
 app.get('/status', (req, res) => {
@@ -642,6 +717,8 @@ app.get('/status', (req, res) => {
             abuse_ipdb:     !!process.env.ABUSEIPDB_API_KEY,
             hibp:           !!process.env.HIBP_API_KEY,
         },
+        attackTriggersEnabled: ATTACK_TRIGGERS_ENABLED,
+        sseClients: sseClients.size,
     });
 });
 

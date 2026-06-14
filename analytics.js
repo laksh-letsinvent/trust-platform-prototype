@@ -6,7 +6,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const EventEmitter = require('events');
 const db = require('./db');
+
+const analyticsEmitter = new EventEmitter();
 
 const BUFFER_SIZE = 500;
 const LOGFILE = path.join(__dirname, 'decisions.jsonl');
@@ -44,6 +47,7 @@ function record(entry) {
         replay: entry.replay || null,
     };
     ringBuffer.push(row);
+    analyticsEmitter.emit('decision', row);
 
     // Primary write: JSONL survives restarts and is the simulation replay source
     try { fs.appendFileSync(LOGFILE, JSON.stringify(row) + '\n'); } catch (_) {}
@@ -199,4 +203,4 @@ function clear() {
     ringBuffer.length = 0;
 }
 
-module.exports = { record, getStats, getDecisions, clear };
+module.exports = { record, getStats, getDecisions, clear, analyticsEmitter };

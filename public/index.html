@@ -357,6 +357,54 @@
     [data-theme="light"] .btn-secondary { background:var(--monzo-surface); color:var(--text); }
     [data-theme="light"] .trace-section-body { color:#3a5068; }
     #themeToggle { font-size:1rem; padding:.3rem .6rem; line-height:1; }
+
+    /* ── Monitor tab ── */
+    .monitor-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
+    @media (max-width:800px) { .monitor-grid { grid-template-columns:1fr 1fr; } }
+    .monitor-stat { padding:1rem 1.1rem; background:var(--monzo-navy-light); border:1px solid var(--monzo-border); border-radius:var(--radius); }
+    .monitor-stat-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:.35rem; }
+    .monitor-stat-value { font-size:1.8rem; font-weight:700; font-family:'JetBrains Mono',monospace; line-height:1.1; }
+    .monitor-stat-sub { font-size:.75rem; color:var(--text-muted); margin-top:.2rem; }
+    .monitor-attack-normal { color:var(--monzo-green); }
+    .monitor-attack-alert  { color:var(--monzo-red); }
+
+    .monitor-layout { display:grid; grid-template-columns:3fr 2fr; gap:1.25rem; align-items:start; }
+    @media (max-width:900px) { .monitor-layout { grid-template-columns:1fr; } }
+
+    .feed-wrapper { position:relative; }
+    .feed-pause-banner { position:absolute; top:.5rem; left:50%; transform:translateX(-50%); background:var(--monzo-surface); border:1px solid var(--monzo-border); border-radius:20px; padding:.25rem .85rem; font-size:.75rem; color:var(--text-muted); font-weight:600; display:none; z-index:2; pointer-events:none; }
+    .feed-pause-banner.visible { display:block; }
+    .decision-feed { max-height:520px; overflow-y:auto; display:flex; flex-direction:column; gap:.3rem; }
+    .feed-row { display:flex; align-items:center; gap:.5rem; padding:.4rem .6rem; border-radius:var(--radius-sm); background:var(--monzo-surface); border:1px solid var(--monzo-border); font-size:.78rem; animation:feed-slide .2s ease; flex-wrap:wrap; }
+    @keyframes feed-slide { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+    .feed-time { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--text-muted); flex-shrink:0; }
+    .feed-customer { font-weight:600; min-width:54px; flex-shrink:0; }
+    .feed-action { color:var(--text-muted); flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .feed-risk { font-size:.68rem; flex-shrink:0; }
+    .feed-rule { font-family:'JetBrains Mono',monospace; font-size:.65rem; color:var(--monzo-orange); flex-shrink:0; overflow:hidden; text-overflow:ellipsis; max-width:130px; white-space:nowrap; }
+    .feed-badge { display:inline-flex; align-items:center; padding:.15rem .5rem; border-radius:10px; font-size:.68rem; font-weight:700; flex-shrink:0; }
+    .feed-badge.FRICTIONLESS  { background:var(--monzo-teal-dim); color:var(--monzo-teal); }
+    .feed-badge.STEP_UP       { background:var(--monzo-orange-bg); color:var(--monzo-orange); }
+    .feed-badge.DENY          { background:var(--monzo-red-bg); color:var(--monzo-red); }
+    .feed-badge.MANUAL_REVIEW { background:var(--monzo-purple-bg); color:var(--monzo-purple); }
+    .feed-empty { text-align:center; padding:3rem 1rem; color:var(--text-muted); font-size:.85rem; }
+
+    .monitor-conn { display:flex; align-items:center; gap:.5rem; font-size:.78rem; margin-bottom:.75rem; }
+    .conn-dot { width:8px; height:8px; border-radius:50%; background:var(--monzo-border); flex-shrink:0; }
+    .conn-dot.connected { background:var(--monzo-green); animation:pulse-dot 2s ease infinite; }
+    .conn-dot.reconnecting { background:var(--monzo-orange); }
+    @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+    .geo-row { display:flex; align-items:center; gap:.5rem; padding:.35rem 0; border-bottom:1px solid rgba(30,58,82,.4); font-size:.82rem; }
+    .geo-row:last-child { border-bottom:none; }
+    .geo-flag { font-size:1rem; flex-shrink:0; width:1.4rem; text-align:center; }
+    .geo-label { flex:1; color:var(--text-muted); }
+    .geo-count { font-weight:700; font-family:'JetBrains Mono',monospace; font-size:.8rem; }
+
+    .attack-buttons { display:flex; flex-direction:column; gap:.5rem; margin-top:.75rem; }
+    .btn-attack { background:var(--monzo-red-bg); color:var(--monzo-red); border:1px solid rgba(254,75,96,.3); font-size:.8rem; padding:.45rem .9rem; text-align:left; }
+    .btn-attack:hover { background:rgba(254,75,96,.25); }
+    .btn-attack:disabled { opacity:.4; }
   </style>
 </head>
 <body>
@@ -376,11 +424,88 @@
 
   <nav class="tab-nav">
     <button class="tab-btn active" data-tab="simulator">Decision Simulator</button>
+    <button class="tab-btn" data-tab="monitor">📺 Monitor</button>
     <button class="tab-btn" data-tab="control">Control Panel</button>
     <button class="tab-btn" data-tab="analytics">Analytics</button>
     <button class="tab-btn" data-tab="review">Review Queue<span class="tab-badge hidden" id="reviewBadge">0</span></button>
     <button class="tab-btn" data-tab="policy-lab">🧪 Policy Lab</button>
   </nav>
+
+  <!-- ══════════════════ TAB: MONITOR ══════════════════ -->
+  <div id="tab-monitor" class="tab-panel">
+
+    <!-- Stats strip -->
+    <div class="monitor-grid">
+      <div class="monitor-stat">
+        <div class="monitor-stat-label">Decisions / min</div>
+        <div class="monitor-stat-value" id="monStatDpm">—</div>
+        <div class="monitor-stat-sub">rolling 60 s</div>
+      </div>
+      <div class="monitor-stat">
+        <div class="monitor-stat-label">Rule triggers (5 min)</div>
+        <div class="monitor-stat-value" id="monStatRules">—</div>
+        <div class="monitor-stat-sub">active rules fired</div>
+      </div>
+      <div class="monitor-stat">
+        <div class="monitor-stat-label">Risk distribution</div>
+        <div class="monitor-stat-value" id="monStatRisk" style="font-size:1rem;line-height:1.4;">—</div>
+        <div class="monitor-stat-sub">last 50 decisions</div>
+      </div>
+      <div class="monitor-stat">
+        <div class="monitor-stat-label">Attack status</div>
+        <div class="monitor-stat-value monitor-attack-normal" id="monStatAttack" style="font-size:1.1rem;line-height:1.6;">Normal</div>
+        <div class="monitor-stat-sub" id="monStatAttackSub">no recent denials</div>
+      </div>
+    </div>
+
+    <!-- Connection + feed layout -->
+    <div class="monitor-conn">
+      <div class="conn-dot" id="monConnDot"></div>
+      <span id="monConnLabel" style="color:var(--text-muted);">Not connected</span>
+    </div>
+
+    <div class="monitor-layout">
+      <!-- Left: decision feed -->
+      <div>
+        <div class="card-title-row" style="margin-bottom:.75rem;">
+          <p class="card-title" style="margin:0;">Live Decision Feed</p>
+          <button class="btn btn-secondary btn-sm" id="monBtnClearFeed">Clear</button>
+        </div>
+        <div class="feed-wrapper">
+          <div class="feed-pause-banner" id="feedPauseBanner">⏸ Paused — scroll to top to resume</div>
+          <div class="decision-feed" id="decisionFeed">
+            <div class="feed-empty" id="feedEmpty">Waiting for decisions… Open the Monitor tab and start the traffic daemon.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div class="col">
+        <!-- Geo breakdown -->
+        <div class="card">
+          <p class="card-title">Geography (last 50)</p>
+          <div id="monGeoBreakdown"><p class="no-data">No data yet</p></div>
+        </div>
+
+        <!-- Top rules -->
+        <div class="card">
+          <p class="card-title">Top Rules (last 50)</p>
+          <div id="monTopRules"><p class="no-data">No data yet</p></div>
+        </div>
+
+        <!-- Attack triggers (only when enabled) -->
+        <div class="card" id="monAttackCard" style="display:none;">
+          <p class="card-title">Trigger Attack Scenario</p>
+          <div class="attack-buttons">
+            <button class="btn btn-attack" data-scenario="credentialStuffing">🤖 Credential Stuffing — 15 login bursts</button>
+            <button class="btn btn-attack" data-scenario="accountTakeover">🎭 Account Takeover — login → recovery → transfer</button>
+            <button class="btn btn-attack" data-scenario="muleNetwork">💸 Mule Network — 5 customers, 1 device</button>
+          </div>
+          <p style="font-size:.72rem;color:var(--text-muted);margin:.6rem 0 0;">Results appear in the feed within seconds.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════════════════ TAB 1: DECISION SIMULATOR ══════════════════ -->
   <div id="tab-simulator" class="tab-panel active">
@@ -852,6 +977,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tabId === 'policy-lab' && !tabsInitialized['policy-lab']) {
       tabsInitialized['policy-lab'] = true;
       initPolicyLab();
+    }
+    if (tabId === 'monitor') {
+      window.monitorConnect && window.monitorConnect();
+      window.monitorCheckAttackTriggers && window.monitorCheckAttackTriggers();
+    } else {
+      window.monitorDisconnect && window.monitorDisconnect();
     }
     activeTab = tabId;
   });
@@ -2191,6 +2322,231 @@ function plRenderSimulation(simulation) {
   document.getElementById('plNeverFired').innerHTML = plRenderNeverFired(simulation.rules_never_fired);
   document.getElementById('plSamples').innerHTML = plRenderSamples(simulation.changed_samples);
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Monitor tab — SSE feed + stats
+// ────────────────────────────────────────────────────────────────────────────
+
+(function initMonitor() {
+  const MAX_FEED = 50;
+  let monitorES = null;
+  let feedDecisions = [];   // newest first, max MAX_FEED
+  let feedPaused = false;
+  let monitorInited = false;
+  const GEO_FLAGS = { UK:'🇬🇧', DE:'🇩🇪', FR:'🇫🇷', US:'🇺🇸', NL:'🇳🇱', IE:'🇮🇪', PL:'🇵🇱', ES:'🇪🇸', IT:'🇮🇹' };
+
+  function connectMonitorStream() {
+    const dot = document.getElementById('monConnDot');
+    const label = document.getElementById('monConnLabel');
+    dot.className = 'conn-dot reconnecting';
+    label.textContent = 'Connecting…';
+
+    monitorES = new EventSource('/events/stream');
+
+    monitorES.onopen = () => {
+      dot.className = 'conn-dot connected';
+      label.textContent = 'Connected — live';
+    };
+
+    monitorES.onmessage = (e) => {
+      try {
+        const row = JSON.parse(e.data);
+        // Only show primary decisions (not outcome records)
+        if (row.outcome != null) return;
+        addToFeed(row);
+        updateMonitorStats();
+      } catch (_) {}
+    };
+
+    monitorES.onerror = () => {
+      dot.className = 'conn-dot reconnecting';
+      label.textContent = 'Reconnecting…';
+      monitorES.close();
+      setTimeout(() => {
+        if (activeTab === 'monitor') connectMonitorStream();
+      }, 3000);
+    };
+  }
+
+  function disconnectMonitorStream() {
+    if (monitorES) { monitorES.close(); monitorES = null; }
+    const dot = document.getElementById('monConnDot');
+    const label = document.getElementById('monConnLabel');
+    dot.className = 'conn-dot';
+    label.textContent = 'Not connected';
+  }
+
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+
+  function addToFeed(row) {
+    feedDecisions.unshift(row);
+    if (feedDecisions.length > MAX_FEED) feedDecisions.pop();
+
+    const empty = document.getElementById('feedEmpty');
+    if (empty) empty.remove();
+
+    if (feedPaused) return;
+
+    const feed = document.getElementById('decisionFeed');
+    const el = buildFeedRow(row);
+    feed.insertBefore(el, feed.firstChild);
+
+    // Prune DOM to MAX_FEED rows
+    while (feed.children.length > MAX_FEED) feed.removeChild(feed.lastChild);
+  }
+
+  function buildFeedRow(row) {
+    const d = row.decision || '';
+    const el = document.createElement('div');
+    el.className = 'feed-row';
+    el.innerHTML =
+      `<span class="feed-time">${fmtTime(row.timestamp)}</span>` +
+      `<span class="feed-customer">${escHtml(row.customer_id || '—')}</span>` +
+      `<span class="feed-action">${escHtml(row.action || '—')}</span>` +
+      `<span class="feed-badge ${d}">${d || '—'}</span>` +
+      `<span class="feed-risk" style="color:${riskColour(row.riskLevel)}">${row.riskLevel || '—'}</span>` +
+      `<span class="feed-rule">${escHtml(row.ruleId || '')}</span>`;
+    return el;
+  }
+
+  function riskColour(level) {
+    if (level === 'HIGH')   return 'var(--monzo-red)';
+    if (level === 'MEDIUM') return 'var(--monzo-orange)';
+    if (level === 'LOW')    return 'var(--monzo-green)';
+    return 'var(--text-muted)';
+  }
+
+  function updateMonitorStats() {
+    const now = Date.now();
+    const last60s = feedDecisions.filter(r => now - r.timestamp < 60000);
+    const last5m  = feedDecisions.filter(r => now - r.timestamp < 300000);
+    const last50  = feedDecisions.slice(0, 50);
+
+    // Decisions per min
+    document.getElementById('monStatDpm').textContent = last60s.length;
+
+    // Rule triggers in 5 min
+    const rulesFired = new Set(last5m.filter(r => r.ruleId).map(r => r.ruleId));
+    document.getElementById('monStatRules').textContent = rulesFired.size;
+
+    // Risk distribution (last 50)
+    const riskCounts = { LOW: 0, MEDIUM: 0, HIGH: 0 };
+    for (const r of last50) if (r.riskLevel) riskCounts[r.riskLevel] = (riskCounts[r.riskLevel] || 0) + 1;
+    const total50 = last50.length || 1;
+    document.getElementById('monStatRisk').innerHTML =
+      `<span style="color:var(--monzo-green)">${Math.round(riskCounts.LOW/total50*100)}% L</span> ` +
+      `<span style="color:var(--monzo-orange)">${Math.round(riskCounts.MEDIUM/total50*100)}% M</span> ` +
+      `<span style="color:var(--monzo-red)">${Math.round(riskCounts.HIGH/total50*100)}% H</span>`;
+
+    // Attack status — any DENY in last 2 min with a velocity-related rule?
+    const recentDenies = last50.filter(r => r.decision === 'DENY' && now - r.timestamp < 120000);
+    const attackDetected = recentDenies.length >= 3;
+    const attackEl = document.getElementById('monStatAttack');
+    const attackSub = document.getElementById('monStatAttackSub');
+    if (attackDetected) {
+      attackEl.className = 'monitor-stat-value monitor-attack-alert';
+      attackEl.textContent = '🚨 Attack';
+      attackSub.textContent = `${recentDenies.length} denials in 2 min`;
+    } else {
+      attackEl.className = 'monitor-stat-value monitor-attack-normal';
+      attackEl.textContent = 'Normal';
+      attackSub.textContent = 'no recent denials';
+    }
+
+    // Geo breakdown
+    const geoCounts = {};
+    for (const r of last50) {
+      const g = (r.replay && r.replay.geography) || '—';
+      geoCounts[g] = (geoCounts[g] || 0) + 1;
+    }
+    const geoEl = document.getElementById('monGeoBreakdown');
+    const geoEntries = Object.entries(geoCounts).sort((a, b) => b[1] - a[1]);
+    if (geoEntries.length === 0) {
+      geoEl.innerHTML = '<p class="no-data">No data yet</p>';
+    } else {
+      geoEl.innerHTML = geoEntries.map(([geo, cnt]) =>
+        `<div class="geo-row"><span class="geo-flag">${GEO_FLAGS[geo] || '🌐'}</span><span class="geo-label">${geo}</span><span class="geo-count">${cnt}</span></div>`
+      ).join('');
+    }
+
+    // Top rules
+    const ruleCounts = {};
+    for (const r of last50) if (r.ruleId) ruleCounts[r.ruleId] = (ruleCounts[r.ruleId] || 0) + 1;
+    const rulesEl = document.getElementById('monTopRules');
+    const ruleEntries = Object.entries(ruleCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const maxRuleCount = ruleEntries.length ? ruleEntries[0][1] : 1;
+    if (ruleEntries.length === 0) {
+      rulesEl.innerHTML = '<p class="no-data">No data yet</p>';
+    } else {
+      rulesEl.innerHTML = ruleEntries.map(([id, cnt]) =>
+        `<div class="mini-bar-row">
+          <span class="mini-label rule-hit-id">${escHtml(id)}</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.round(cnt/maxRuleCount*100)}%;background:var(--monzo-coral)"></div></div>
+          <span class="mini-count">${cnt}</span>
+        </div>`
+      ).join('');
+    }
+  }
+
+  // Scroll-to-pause
+  document.getElementById('decisionFeed').addEventListener('scroll', (e) => {
+    const feed = e.target;
+    const atTop = feed.scrollTop < 30;
+    feedPaused = !atTop;
+    const banner = document.getElementById('feedPauseBanner');
+    banner.classList.toggle('visible', feedPaused);
+    if (!feedPaused) {
+      // Re-render feed from buffer when resuming
+      feed.innerHTML = '';
+      feedDecisions.slice(0, MAX_FEED).forEach(r => feed.appendChild(buildFeedRow(r)));
+    }
+  });
+
+  document.getElementById('monBtnClearFeed').addEventListener('click', () => {
+    feedDecisions = [];
+    const feed = document.getElementById('decisionFeed');
+    feed.innerHTML = '<div class="feed-empty" id="feedEmpty">Feed cleared. Waiting for new decisions…</div>';
+    updateMonitorStats();
+  });
+
+  // Attack trigger buttons
+  document.querySelectorAll('.btn-attack').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const scenario = btn.dataset.scenario;
+      btn.disabled = true;
+      btn.textContent = '⏳ Triggering…';
+      try {
+        const res = await apiFetch(`/dev/attack/${scenario}`, { method: 'POST' });
+        showToast(`${scenario}: ${res.payloads_queued} payloads fired`, 'success');
+      } catch (err) {
+        showToast(`Attack failed: ${err.message}`, 'error');
+      } finally {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = btn.dataset.scenario === 'credentialStuffing' ? '🤖 Credential Stuffing — 15 login bursts'
+            : btn.dataset.scenario === 'accountTakeover' ? '🎭 Account Takeover — login → recovery → transfer'
+            : '💸 Mule Network — 5 customers, 1 device';
+        }, 2000);
+      }
+    });
+  });
+
+  // Expose connect/disconnect for tab switching
+  window.monitorConnect = connectMonitorStream;
+  window.monitorDisconnect = disconnectMonitorStream;
+  window.monitorCheckAttackTriggers = async () => {
+    if (monitorInited) return;
+    monitorInited = true;
+    try {
+      const s = await apiFetch('/status');
+      if (s.attackTriggersEnabled) {
+        document.getElementById('monAttackCard').style.display = '';
+      }
+    } catch (_) {}
+  };
+})();
 
 </script>
 </body>
