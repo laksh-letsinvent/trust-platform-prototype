@@ -98,6 +98,18 @@ function matchesCondition(condition, context) {
         if (v <= condition.velocity_15m_gt) return false;
     }
 
+    // Intelligence enrichment conditions (Phase 2)
+    if (condition.vpn_detected != null && (context.is_vpn || false) !== condition.vpn_detected) return false;
+    if (condition.tor_detected != null && (context.is_tor || false) !== condition.tor_detected) return false;
+    if (condition.email_breached != null && (context.email_breached || false) !== condition.email_breached) return false;
+    if (condition.is_new_device != null && (context.is_new_device || false) !== condition.is_new_device) return false;
+    if (condition.is_greynoise_bot != null && (context.is_greynoise_bot || false) !== condition.is_greynoise_bot) return false;
+    if (condition.ato_signal_count_gte != null && (context.ato_signal_count || 0) < condition.ato_signal_count_gte) return false;
+    if (condition.ip_abuse_score_gte != null) {
+        if (context.ip_abuse_score == null) return false; // skip rule when signal unavailable
+        if (context.ip_abuse_score < condition.ip_abuse_score_gte) return false;
+    }
+
     return true;
 }
 
@@ -127,6 +139,13 @@ function conditionToSummary(condition) {
     if (condition.velocity_1m_gt != null) parts.push(`velocity_1m > ${condition.velocity_1m_gt}`);
     if (condition.velocity_5m_gt != null) parts.push(`velocity_5m > ${condition.velocity_5m_gt}`);
     if (condition.velocity_15m_gt != null) parts.push(`velocity_15m > ${condition.velocity_15m_gt}`);
+    if (condition.vpn_detected != null) parts.push(`vpn_detected = ${condition.vpn_detected}`);
+    if (condition.tor_detected != null) parts.push(`tor_detected = ${condition.tor_detected}`);
+    if (condition.email_breached != null) parts.push(`email_breached = ${condition.email_breached}`);
+    if (condition.is_new_device != null) parts.push(`is_new_device = ${condition.is_new_device}`);
+    if (condition.is_greynoise_bot != null) parts.push(`is_greynoise_bot = ${condition.is_greynoise_bot}`);
+    if (condition.ato_signal_count_gte != null) parts.push(`ato_signal_count >= ${condition.ato_signal_count_gte}`);
+    if (condition.ip_abuse_score_gte != null) parts.push(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`);
     return parts.length ? parts.join(', ') : 'none';
 }
 
@@ -178,11 +197,37 @@ function explainCondition(condition, context) {
         if (!check(`velocity_15m > ${condition.velocity_15m_gt}`, v > condition.velocity_15m_gt, v)) return steps;
     }
 
+    // Intelligence enrichment conditions
+    if (condition.vpn_detected != null)
+        if (!check(`vpn_detected === ${condition.vpn_detected}`, (context.is_vpn || false) === condition.vpn_detected, context.is_vpn)) return steps;
+    if (condition.tor_detected != null)
+        if (!check(`tor_detected === ${condition.tor_detected}`, (context.is_tor || false) === condition.tor_detected, context.is_tor)) return steps;
+    if (condition.email_breached != null)
+        if (!check(`email_breached === ${condition.email_breached}`, (context.email_breached || false) === condition.email_breached, context.email_breached)) return steps;
+    if (condition.is_new_device != null)
+        if (!check(`is_new_device === ${condition.is_new_device}`, (context.is_new_device || false) === condition.is_new_device, context.is_new_device)) return steps;
+    if (condition.is_greynoise_bot != null)
+        if (!check(`is_greynoise_bot === ${condition.is_greynoise_bot}`, (context.is_greynoise_bot || false) === condition.is_greynoise_bot, context.is_greynoise_bot)) return steps;
+    if (condition.ato_signal_count_gte != null)
+        if (!check(`ato_signal_count >= ${condition.ato_signal_count_gte}`, (context.ato_signal_count || 0) >= condition.ato_signal_count_gte, context.ato_signal_count || 0)) return steps;
+    if (condition.ip_abuse_score_gte != null) {
+        if (context.ip_abuse_score == null) { check(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`, false, 'unavailable'); return steps; }
+        if (!check(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`, context.ip_abuse_score >= condition.ip_abuse_score_gte, context.ip_abuse_score)) return steps;
+    }
+
     return steps;
 }
 
 function evaluate(context) {
-    const config = loadPolicies();
+    return evaluateWith(loadPolicies(), context);
+}
+
+/**
+ * Evaluate a context against an arbitrary decisions config (does not touch the
+ * cached live policy). Used by the simulation engine to compare proposed
+ * policies against the current one on identical contexts.
+ */
+function evaluateWith(config, context) {
     const { rules, default: defaultResult } = config;
 
     const trace = {
@@ -243,11 +288,84 @@ function evaluate(context) {
     };
 }
 
+// ─── Config validation ───────────────────────────────────────────────────────
+
+const VALID_DECISIONS = ['ALLOW', 'STEP_UP', 'DENY', 'MANUAL_REVIEW'];
+const VALID_STEP_UP_TYPES = ['PASSCODE', 'PASSKEY', 'SELFIE', 'IDV', 'AL_PLUS_1', 'REQUIRED_AL'];
+const VALID_CONDITION_KEYS = [
+    'fraudScoreMin', 'fraudScoreMax', 'deviceScoreMin', 'deviceScoreMax',
+    'riskLevel', 'geography', 'actionTier', 'requiredAL', 'alMeetsRequired',
+    'confidenceMeetsAction', 'currentAuthLevelLessThan',
+    'velocity_1m_gt', 'velocity_5m_gt', 'velocity_15m_gt',
+    // Intelligence enrichment conditions (Phase 2)
+    'vpn_detected', 'tor_detected', 'email_breached', 'ato_signal_count_gte',
+    'ip_abuse_score_gte', 'is_new_device', 'is_greynoise_bot',
+];
+
+/**
+ * Validates a decisions config (or a single rule via validateRule).
+ * Returns { valid: boolean, errors: string[] }.
+ */
+function validateRule(rule, idx = null) {
+    const errors = [];
+    const label = rule && rule.id ? `rule '${rule.id}'` : `rule at index ${idx}`;
+    if (!rule || typeof rule !== 'object') return [`${label}: not an object`];
+    if (!rule.id || typeof rule.id !== 'string') errors.push(`${label}: missing string 'id'`);
+    if (!VALID_DECISIONS.includes(rule.decision)) errors.push(`${label}: decision must be one of ${VALID_DECISIONS.join(', ')}`);
+    if (rule.step_up_type != null && !VALID_STEP_UP_TYPES.includes(rule.step_up_type)) {
+        errors.push(`${label}: step_up_type must be one of ${VALID_STEP_UP_TYPES.join(', ')}`);
+    }
+    if (rule.decision === 'STEP_UP' && rule.step_up_type == null) {
+        errors.push(`${label}: STEP_UP decision requires a step_up_type`);
+    }
+    if (rule.condition != null) {
+        if (typeof rule.condition !== 'object' || Array.isArray(rule.condition)) {
+            errors.push(`${label}: condition must be an object`);
+        } else {
+            for (const key of Object.keys(rule.condition)) {
+                if (!VALID_CONDITION_KEYS.includes(key)) {
+                    errors.push(`${label}: unknown condition key '${key}' (valid: ${VALID_CONDITION_KEYS.join(', ')})`);
+                }
+            }
+        }
+    }
+    return errors;
+}
+
+function validateDecisionsConfig(config) {
+    const errors = [];
+    if (!config || typeof config !== 'object') {
+        return { valid: false, errors: ['config must be an object'] };
+    }
+    if (!Array.isArray(config.rules)) {
+        errors.push("config must contain a 'rules' array");
+    } else {
+        const seen = new Set();
+        config.rules.forEach((rule, idx) => {
+            errors.push(...validateRule(rule, idx));
+            if (rule && rule.id) {
+                if (seen.has(rule.id)) errors.push(`duplicate rule id '${rule.id}'`);
+                seen.add(rule.id);
+            }
+        });
+    }
+    if (!config.default || !VALID_DECISIONS.includes(config.default.decision)) {
+        errors.push(`config must contain a 'default' with decision in ${VALID_DECISIONS.join(', ')}`);
+    }
+    return { valid: errors.length === 0, errors };
+}
+
 module.exports = {
     loadPolicies,
     evaluate,
+    evaluateWith,
     matchesCondition,
     conditionToSummary,
     explainCondition,
-    clearCache
+    validateRule,
+    validateDecisionsConfig,
+    clearCache,
+    VALID_CONDITION_KEYS,
+    VALID_DECISIONS,
+    VALID_STEP_UP_TYPES
 };

@@ -26,9 +26,12 @@ const copilot = require('./copilot');
 let sheets = null;
 try { sheets = require('./data/sheets'); } catch (_) {}
 
+const enrichmentOrchestrator = require('./adapters/enrichmentOrchestrator');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', 1); // trust Caddy/nginx forwarded IP
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -99,7 +102,7 @@ app.post('/trust/decision', apiKey, async (req, res) => {
     }
     try {
         const result = await getDecision(
-            { customer_id, action, device_id, current_auth_level },
+            { customer_id, action, device_id, current_auth_level, ip: req.ip || null },
             { callerKeyId: req.apiKeyId || null }
         );
         res.json(result);
@@ -633,6 +636,12 @@ app.get('/status', (req, res) => {
         sheetsConfigured: sheets ? sheets.isConfigured() : false,
         redis_status: velocityEngine.getStatus(),
         postgres_status: db.getStatus(),
+        adapters: {
+            ip_geolocation: true,        // ip-api.com — always available, no key needed
+            greynoise:      true,        // GreyNoise community — no key needed
+            abuse_ipdb:     !!process.env.ABUSEIPDB_API_KEY,
+            hibp:           !!process.env.HIBP_API_KEY,
+        },
     });
 });
 

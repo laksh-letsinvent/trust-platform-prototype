@@ -9,6 +9,7 @@ const velocityEngine = require('./velocityEngine');
 const analytics = require('./analytics');
 const amplitude = require('./amplitude');
 const sessionStore = require('./sessionStore');
+const enrichmentOrchestrator = require('./adapters/enrichmentOrchestrator');
 
 /**
  * Generates a human-readable reference ID for actionable decisions.
@@ -28,7 +29,7 @@ function generateRef(prefix, customerId, action) {
  * Runs the full trust decision pipeline.
  * Request: customer_id, action, device_id, current_auth_level (optional).
  */
-async function getDecision({ customer_id, action, device_id, current_auth_level }, analyticsExtra = {}) {
+async function getDecision({ customer_id, action, device_id, current_auth_level, ip }, analyticsExtra = {}) {
     const trace = {
         input: { customer_id, action, device_id, current_auth_level: current_auth_level ?? null },
         data_lookup: {},
@@ -75,7 +76,26 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         await cache.setCachedDeviceScore(device_id, deviceScore);
     }
 
-    const geography = user && user.geography ? user.geography : null;
+    // Enrich with external intelligence — always best-effort, never blocks the decision
+    const enrichment = await enrichmentOrchestrator.enrich({
+        ip: ip || null,
+        email: user?.email || null,
+        customerId: customer_id,
+        deviceId: device_id,
+        existingDeviceIds: user?.known_device_ids || [],
+    }).catch(() => ({}));
+
+    // Apply enrichment adjustments additively — never set scores to a fixed value
+    if (enrichment.is_tor)            fraudScore = Math.min(100, fraudScore + 40);
+    if (enrichment.is_greynoise_bot)  fraudScore = Math.min(100, fraudScore + 40);
+    if (enrichment.is_proxy || enrichment.is_vpn) fraudScore = Math.min(100, fraudScore + 15);
+    if (enrichment.email_breached && enrichment.breach_count > 2) fraudScore = Math.min(100, fraudScore + 20);
+    if (enrichment.ip_abuse_score != null && enrichment.ip_abuse_score > 80)  deviceScore = Math.max(0, deviceScore - 40);
+    else if (enrichment.ip_abuse_score != null && enrichment.ip_abuse_score > 50) deviceScore = Math.max(0, deviceScore - 20);
+    if (enrichment.is_new_device && user != null) deviceScore = Math.max(0, deviceScore - 30);
+
+    // Use IP-derived geography when available, fall back to user record
+    const geography = enrichment.geography || (user && user.geography ? user.geography : null);
 
     // Velocity: get counts before recording this request
     const velocity = await velocityEngine.getVelocity(customer_id);
@@ -87,8 +107,10 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         geography,
         current_auth_level: current_auth_level ?? null,
         velocity,
-        velocity_tracking: velocityEngine.isAvailable() ? 'active' : 'unavailable (Redis not connected)'
+        velocity_tracking: velocityEngine.isAvailable() ? 'active' : 'unavailable (Redis not connected)',
+        enrichment: Object.keys(enrichment).length ? enrichment : null,
     };
+    trace.enrichment = Object.keys(enrichment).length ? enrichment : null;
 
     const context = computeContext({
         fraudScore,
@@ -97,7 +119,8 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
         actionInfo,
         authenticatorInfo,
         currentAuthLevel: current_auth_level ?? null,
-        velocity
+        velocity,
+        enrichment,
     });
 
     trace.context = {
@@ -177,6 +200,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level 
                 deviceScore,
                 geography: context.geography,
                 velocity: context.velocity,
+                enrichment: Object.keys(enrichment).length ? enrichment : null,
             },
         });
     }

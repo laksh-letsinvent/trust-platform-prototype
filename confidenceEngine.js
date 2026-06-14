@@ -77,7 +77,7 @@ function computeEffectiveConfidence(fraudScore, deviceScore, authenticatorConfid
  * Accepts optional velocity signals for velocity-based policy rules.
  */
 function computeContext(signals) {
-    const { fraudScore, deviceScore, geography, actionInfo, authenticatorInfo, currentAuthLevel, velocity } = signals;
+    const { fraudScore, deviceScore, geography, actionInfo, authenticatorInfo, currentAuthLevel, velocity, enrichment } = signals;
     const config = loadConfidenceConfig();
 
     const score = Number(fraudScore);
@@ -191,6 +191,17 @@ function computeContext(signals) {
         confidenceMeetsAction,
         currentAuthLevel: currentAuthLevel ?? null,
         velocity: velocitySignals,
+        // Intelligence enrichment (Phase 2) — defaults to safe falsy values when absent
+        is_proxy:         enrichment?.is_proxy         || false,
+        is_vpn:           enrichment?.is_vpn           || false,
+        is_tor:           enrichment?.is_tor           || false,
+        is_hosting:       enrichment?.is_hosting       || false,
+        email_breached:   enrichment?.email_breached   || false,
+        breach_count:     enrichment?.breach_count     ?? 0,
+        ip_abuse_score:   enrichment?.ip_abuse_score   ?? null,
+        is_greynoise_bot: enrichment?.is_greynoise_bot || false,
+        is_new_device:    enrichment?.is_new_device    || false,
+        ato_signal_count: enrichment?.ato_signal_count ?? 0,
         signals,
         confidenceTrace
     };

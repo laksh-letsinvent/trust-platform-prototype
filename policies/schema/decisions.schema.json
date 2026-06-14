@@ -12,10 +12,11 @@
         "required": ["id", "decision"],
         "additionalProperties": false,
         "properties": {
-          "id":          { "type": "string" },
-          "enabled":     { "type": "boolean" },
-          "description": { "type": "string" },
-          "reason":      { "type": "string" },
+          "id":              { "type": "string" },
+          "enabled":         { "type": "boolean" },
+          "description":     { "type": "string" },
+          "reason":          { "type": "string" },
+          "display_message": { "type": "string" },
           "decision": {
             "type": "string",
             "enum": ["ALLOW", "STEP_UP", "DENY", "MANUAL_REVIEW"]
@@ -41,7 +42,14 @@
               "currentAuthLevelLessThan": { "type": "string" },
               "velocity_1m_gt":         { "type": "number", "minimum": 0 },
               "velocity_5m_gt":         { "type": "number", "minimum": 0 },
-              "velocity_15m_gt":        { "type": "number", "minimum": 0 }
+              "velocity_15m_gt":        { "type": "number", "minimum": 0 },
+              "vpn_detected":           { "type": "boolean" },
+              "tor_detected":           { "type": "boolean" },
+              "email_breached":         { "type": "boolean" },
+              "is_new_device":          { "type": "boolean" },
+              "is_greynoise_bot":       { "type": "boolean" },
+              "ato_signal_count_gte":   { "type": "number", "minimum": 0, "maximum": 3 },
+              "ip_abuse_score_gte":     { "type": "number", "minimum": 0, "maximum": 100 }
             }
           }
         }
@@ -59,7 +67,8 @@
           "type": "string",
           "enum": ["PASSCODE", "PASSKEY", "SELFIE", "IDV", "AL_PLUS_1", "REQUIRED_AL"]
         },
-        "reason": { "type": "string" }
+        "reason":          { "type": "string" },
+        "display_message": { "type": "string" }
       }
     }
   },

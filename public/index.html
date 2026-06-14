@@ -7,6 +7,23 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script type="module">
+    import FingerprintJS from 'https://openfpcdn.io/fingerprintjs/v4';
+    const fp = await FingerprintJS.load();
+    const result = await fp.get();
+    window.visitorId = result.visitorId;
+    localStorage.setItem('fp_visitor_id', result.visitorId);
+    const badge = document.getElementById('fpBadge');
+    if (badge) badge.style.display = 'inline-flex';
+    const sel = document.getElementById('selDevice');
+    if (sel) {
+      const opt = document.createElement('option');
+      opt.value = result.visitorId;
+      opt.textContent = `Real fingerprint (${result.visitorId.slice(0,8)}…)`;
+      opt.selected = true;
+      sel.insertBefore(opt, sel.firstChild);
+    }
+  </script>
   <style>
     :root {
       --monzo-navy: #091723;
@@ -362,6 +379,7 @@
     <button class="tab-btn" data-tab="control">Control Panel</button>
     <button class="tab-btn" data-tab="analytics">Analytics</button>
     <button class="tab-btn" data-tab="review">Review Queue<span class="tab-badge hidden" id="reviewBadge">0</span></button>
+    <button class="tab-btn" data-tab="policy-lab">🧪 Policy Lab</button>
   </nav>
 
   <!-- ══════════════════ TAB 1: DECISION SIMULATOR ══════════════════ -->
@@ -378,7 +396,7 @@
               <select id="selCustomer"><option value="">— select —</option></select>
             </div>
             <div>
-              <label for="selDevice">Device</label>
+              <label for="selDevice">Device <span id="fpBadge" class="badge badge-green" style="display:none;font-size:.68rem;padding:.15rem .45rem;vertical-align:middle;">Real fingerprint</span></label>
               <select id="selDevice"><option value="">— select —</option></select>
             </div>
             <div>
@@ -700,6 +718,87 @@
     </div>
   </div>
 
+  <!-- ══════════════════ TAB 5: POLICY LAB ══════════════════ -->
+  <div id="tab-policy-lab" class="tab-panel">
+    <div style="max-width:900px;margin:0 auto;padding:1.5rem 1rem">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
+        <div>
+          <h2 style="margin:0;font-size:1.25rem;font-weight:700">Policy Lab</h2>
+          <p style="margin:.25rem 0 0;color:var(--text-muted);font-size:.875rem">Simulate policy changes before they go live. Nothing publishes until you click Publish.</p>
+        </div>
+        <span id="plCopilotBadge" class="badge badge-muted" style="font-size:.75rem"><span class="badge-dot"></span>AI copilot —</span>
+      </div>
+
+      <!-- Two-column layout: AI copilot | Manual JSON editor -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
+
+        <!-- Left: AI copilot -->
+        <div class="card">
+          <p class="card-title">✦ AI Copilot</p>
+          <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.75rem">Describe a policy in plain English and let Claude draft the rule.</p>
+          <textarea id="plIntent" rows="4" style="width:100%;box-sizing:border-box;padding:.6rem .8rem;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-family:inherit;font-size:.875rem;resize:vertical" placeholder="e.g. &quot;Deny customers with fraud score above 85 trying a wire transfer&quot;"></textarea>
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
+            <button id="plBtnSuggest" class="btn btn-primary btn-sm" style="flex:1">Generate Rule</button>
+            <select id="plInsertPosition" style="padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:.8rem">
+              <option value="top">Insert first (highest priority)</option>
+              <option value="bottom">Insert last (lowest priority)</option>
+            </select>
+          </div>
+          <div id="plCopilotStatus" style="margin-top:.5rem;font-size:.8rem;color:var(--text-muted)"></div>
+        </div>
+
+        <!-- Right: Manual JSON editor -->
+        <div class="card">
+          <p class="card-title">Manual Rule Editor</p>
+          <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.75rem">Paste or type a rule object, or edit the AI suggestion.</p>
+          <textarea id="plRuleJson" rows="12" style="width:100%;box-sizing:border-box;padding:.6rem .8rem;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-family:monospace;font-size:.78rem;resize:vertical" placeholder='{"id":"my_rule","enabled":true,"description":"...","condition":{},"decision":"STEP_UP","step_up_type":"PASSKEY","reason":"..."}'></textarea>
+          <div style="display:flex;gap:.5rem;margin-top:.5rem">
+            <button id="plBtnSimulate" class="btn btn-secondary btn-sm" style="flex:1">Simulate Impact</button>
+            <button id="plBtnPublish" class="btn btn-primary btn-sm" style="flex:1" disabled>Publish Rule</button>
+          </div>
+          <div id="plValidation" style="margin-top:.5rem;font-size:.8rem"></div>
+        </div>
+      </div>
+
+      <!-- Copilot explanation -->
+      <div id="plExplanation" style="display:none" class="card" style="margin-top:1rem;background:var(--surface-2)">
+        <p class="card-title" style="color:var(--monzo-coral)">✦ Claude's analysis</p>
+        <p id="plExplanationText" style="font-size:.875rem;line-height:1.6;margin:0"></p>
+      </div>
+
+      <!-- Simulation results -->
+      <div id="plSimResults" style="display:none;margin-top:1rem">
+        <div class="card">
+          <p class="card-title">Simulation Results</p>
+          <div id="plSimSummary" style="margin-bottom:1rem"></div>
+
+          <!-- Decision mix before/after -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+            <div>
+              <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:0 0 .5rem">Before (current policy)</p>
+              <div id="plMixBefore"></div>
+            </div>
+            <div>
+              <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:0 0 .5rem">After (proposed policy)</p>
+              <div id="plMixAfter"></div>
+            </div>
+          </div>
+
+          <!-- Transitions -->
+          <div id="plTransitions" style="margin-bottom:1rem"></div>
+
+          <!-- Never-fired rules -->
+          <div id="plNeverFired" style="margin-bottom:1rem"></div>
+
+          <!-- Changed samples -->
+          <div id="plSamples"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <!-- Toast notification -->
@@ -749,6 +848,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     }
     if (tabId === 'review') {
       loadReviewQueue();
+    }
+    if (tabId === 'policy-lab' && !tabsInitialized['policy-lab']) {
+      tabsInitialized['policy-lab'] = true;
+      initPolicyLab();
     }
     activeTab = tabId;
   });
@@ -818,7 +921,8 @@ document.getElementById('btnDecide').addEventListener('click', runDecision);
 
 async function runDecision() {
   const customer_id = document.getElementById('selCustomer').value;
-  const device_id = document.getElementById('selDevice').value;
+  const selectedDeviceId = document.getElementById('selDevice').value;
+  const device_id = window.visitorId || selectedDeviceId;
   const action = document.getElementById('selAction').value;
   const current_auth_level = document.getElementById('selAuthLevel').value || null;
 
@@ -962,13 +1066,44 @@ function renderTrace(trace) {
   // IDV routing
   const idvHtml = trace.idv_routing ? jsonBlock(trace.idv_routing) : '<span style="color:var(--text-muted);font-size:.78rem;">No IDV routing (not an IDV step-up)</span>';
 
+  // Intelligence signals panel
+  const enr = trace.enrichment;
+  let enrichHtml;
+  if (!enr || Object.keys(enr).length === 0) {
+    enrichHtml = '<span style="color:var(--text-muted);font-size:.78rem;">Intelligence signals unavailable — configure API keys in .env to enable, or no IP provided.</span>';
+  } else {
+    const flag = enr.geography && enr.geography !== 'LOCAL' ? `${enr._raw?.ip?.countryCode || ''} ` : '';
+    const city = enr._raw?.ip?.city ? `, ${escHtml(enr._raw.ip.city)}` : '';
+    const country = enr.geography ? escHtml(enr.geography) : 'Unknown';
+    const geo = `${flag}${country}${city}`;
+    const bool = (v, label) => {
+      const cls = v ? 'color:var(--monzo-coral)' : 'color:var(--monzo-green)';
+      const icon = v ? '✗' : '✓';
+      return `<span style="${cls}">${icon}</span> ${label}: <strong>${v ? 'Yes' : 'No'}</strong>`;
+    };
+    const atoColor = enr.ato_signal_count >= 2 ? 'var(--monzo-coral)' : enr.ato_signal_count === 1 ? 'var(--monzo-orange)' : 'var(--monzo-green)';
+    const abuseColor = enr.ip_abuse_score == null ? 'var(--text-muted)' : enr.ip_abuse_score > 50 ? 'var(--monzo-coral)' : enr.ip_abuse_score > 20 ? 'var(--monzo-orange)' : 'var(--monzo-green)';
+    const deviceColor = enr.is_new_device ? 'var(--monzo-coral)' : 'var(--monzo-green)';
+    enrichHtml = `<div style="display:flex;flex-direction:column;gap:.45rem;font-size:.78rem;">
+      <div>📍 IP: <strong>${geo}</strong></div>
+      <div>${bool(enr.is_proxy || enr.is_vpn, 'VPN/Proxy')}</div>
+      <div>${bool(enr.is_tor, 'Tor exit node')}</div>
+      <div>${bool(enr.email_breached, 'Email breached')}${enr.email_breached ? ` (${enr.breach_count} breach${enr.breach_count !== 1 ? 'es' : ''})` : ''}</div>
+      <div>🖥 Device: <strong style="color:${deviceColor}">${enr.is_new_device ? 'New (unrecognised)' : 'Known'}</strong></div>
+      <div>⚠ ATO signals: <strong style="color:${atoColor}">${enr.ato_signal_count}/3</strong></div>
+      <div>🤖 Bot (GreyNoise): <strong>${enr.is_greynoise_bot ? '<span style="color:var(--monzo-coral)">Yes</span>' : '<span style="color:var(--monzo-green)">No</span>'}</strong></div>
+      <div>🔴 IP abuse score: <strong style="color:${abuseColor}">${enr.ip_abuse_score ?? 'unavailable'}</strong></div>
+    </div>`;
+  }
+
   body.innerHTML =
     section('1 · Input', inputHtml, true) +
     section('2 · Data Lookup', lookupHtml) +
-    section('3 · Computed Context', ctxHtml) +
-    section('4 · Confidence Calculation', confHtml) +
-    section('5 · Policy Rules', rulesHtml, true) +
-    section('6 · IDV Routing', idvHtml);
+    section('3 · Intelligence Signals', enrichHtml, true) +
+    section('4 · Computed Context', ctxHtml) +
+    section('5 · Confidence Calculation', confHtml) +
+    section('6 · Policy Rules', rulesHtml, true) +
+    section('7 · IDV Routing', idvHtml);
 }
 
 function jsonBlock(obj) {
@@ -1787,6 +1922,276 @@ document.getElementById('btnReviewRefresh').addEventListener('click', loadReview
 loadStatus();
 populateDropdowns();
 refreshReviewBadge();
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tab 5: Policy Lab
+// ────────────────────────────────────────────────────────────────────────────
+
+const DECISION_COLOURS = {
+  FRICTIONLESS: '#00b894',
+  STEP_UP: '#fdcb6e',
+  DENY: '#d63031',
+  MANUAL_REVIEW: '#6c5ce7'
+};
+
+function plDecisionBadge(decision, pct) {
+  const col = DECISION_COLOURS[decision] || 'var(--text-muted)';
+  return `<div style="display:flex;align-items:center;gap:.5rem;margin:.25rem 0">
+    <span style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0"></span>
+    <span style="font-size:.875rem;flex:1">${escHtml(decision)}</span>
+    <span style="font-size:.875rem;font-weight:600;color:${col}">${pct}%</span>
+  </div>`;
+}
+
+function plRenderMix(containerId, mix) {
+  const el = document.getElementById(containerId);
+  if (!mix || !mix.pct) { el.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No data</p>'; return; }
+  const decisions = ['FRICTIONLESS','STEP_UP','DENY','MANUAL_REVIEW'];
+  el.innerHTML = decisions.map(d => plDecisionBadge(d, mix.pct[d] ?? 0)).join('');
+}
+
+function plRenderSummary(result) {
+  const { replayed, changed, changed_pct, note } = result;
+  if (note && replayed === 0) {
+    return `<div class="empty-state" style="padding:1rem">
+      <div class="empty-icon">⊙</div>
+      <p class="empty-title">No replayable history</p>
+      <p class="empty-sub">${escHtml(note)}</p>
+    </div>`;
+  }
+  const changeClass = changed_pct > 10 ? 'color:#d63031' : changed_pct > 3 ? 'color:#fdcb6e' : 'color:#00b894';
+  return `<div style="display:flex;gap:2rem;flex-wrap:wrap">
+    <div><span style="font-size:1.5rem;font-weight:700">${replayed.toLocaleString()}</span><br><span style="font-size:.75rem;color:var(--text-muted)">decisions replayed</span></div>
+    <div><span style="font-size:1.5rem;font-weight:700;${changeClass}">${changed.toLocaleString()}</span><br><span style="font-size:.75rem;color:var(--text-muted)">decisions changed (${changed_pct}%)</span></div>
+  </div>`;
+}
+
+function plRenderTransitions(transitions) {
+  if (!transitions || !Object.keys(transitions).length) return '';
+  const rows = Object.entries(transitions)
+    .sort(([,a],[,b]) => b - a)
+    .map(([k,v]) => {
+      const [from, to] = k.split(' → ');
+      const fromCol = DECISION_COLOURS[from] || 'var(--text-muted)';
+      const toCol = DECISION_COLOURS[to] || 'var(--text-muted)';
+      return `<tr>
+        <td style="padding:.3rem .5rem;font-size:.8rem"><span style="color:${fromCol};font-weight:600">${escHtml(from)}</span></td>
+        <td style="padding:.3rem .5rem;font-size:.8rem;color:var(--text-muted)">→</td>
+        <td style="padding:.3rem .5rem;font-size:.8rem"><span style="color:${toCol};font-weight:600">${escHtml(to)}</span></td>
+        <td style="padding:.3rem .5rem;font-size:.8rem;font-weight:600">${v.toLocaleString()}</td>
+      </tr>`;
+    }).join('');
+  return `<div>
+    <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:0 0 .5rem">Decision transitions</p>
+    <table style="border-collapse:collapse;width:auto">${rows}</table>
+  </div>`;
+}
+
+function plRenderNeverFired(ids) {
+  if (!ids || !ids.length) return '';
+  return `<div style="padding:.6rem .8rem;background:rgba(253,203,110,.12);border:1px solid rgba(253,203,110,.3);border-radius:6px;font-size:.8rem">
+    <strong>⚠ Rules that never fired during replay:</strong> ${ids.map(escHtml).join(', ')}
+    <br><span style="color:var(--text-muted)">These rules may be shadowed by earlier rules or their conditions never matched.</span>
+  </div>`;
+}
+
+function plRenderSamples(samples) {
+  if (!samples || !samples.length) return '';
+  const rows = samples.slice(0, 10).map(s => {
+    const fromCol = DECISION_COLOURS[s.before.decision] || 'var(--text-muted)';
+    const toCol = DECISION_COLOURS[s.after.decision] || 'var(--text-muted)';
+    const ts = new Date(s.timestamp).toLocaleString();
+    return `<tr>
+      <td style="padding:.3rem .5rem;font-size:.78rem;color:var(--text-muted)">${escHtml(ts)}</td>
+      <td style="padding:.3rem .5rem;font-size:.78rem">${escHtml(s.customer_id)}</td>
+      <td style="padding:.3rem .5rem;font-size:.78rem">${escHtml(s.action)}</td>
+      <td style="padding:.3rem .5rem;font-size:.78rem">${s.fraudScore}</td>
+      <td style="padding:.3rem .5rem;font-size:.78rem"><span style="color:${fromCol};font-weight:600">${escHtml(s.before.decision)}</span></td>
+      <td style="padding:.3rem .5rem;font-size:.78rem;color:var(--text-muted)">→</td>
+      <td style="padding:.3rem .5rem;font-size:.78rem"><span style="color:${toCol};font-weight:600">${escHtml(s.after.decision)}</span></td>
+      <td style="padding:.3rem .5rem;font-size:.78rem;color:var(--text-muted)">${escHtml(s.after.ruleId || '(default)')}</td>
+    </tr>`;
+  }).join('');
+  return `<div>
+    <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:0 0 .5rem">Changed decisions (sample)</p>
+    <div style="overflow-x:auto">
+      <table style="border-collapse:collapse;width:100%;min-width:500px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">Time</th>
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">Customer</th>
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">Action</th>
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">Fraud↑</th>
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">Before</th>
+          <th></th>
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">After</th>
+          <th style="padding:.3rem .5rem;font-size:.7rem;text-align:left;color:var(--text-muted)">Matched rule</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+let plCurrentRule = null;
+
+async function initPolicyLab() {
+  // Check copilot availability
+  try {
+    const s = await apiFetch('/policies/copilot/status');
+    const badge = document.getElementById('plCopilotBadge');
+    if (s.available) {
+      badge.className = 'badge badge-green';
+      badge.innerHTML = '<span class="badge-dot"></span>AI copilot Active';
+    } else {
+      badge.className = 'badge badge-muted';
+      badge.innerHTML = '<span class="badge-dot"></span>AI copilot — set ANTHROPIC_API_KEY';
+      document.getElementById('plBtnSuggest').disabled = true;
+      document.getElementById('plBtnSuggest').title = 'Set ANTHROPIC_API_KEY to enable';
+    }
+  } catch (_) {}
+
+  // AI generate rule
+  document.getElementById('plBtnSuggest').addEventListener('click', async () => {
+    const intent = document.getElementById('plIntent').value.trim();
+    if (!intent) { showToast('Enter a policy intent first', 'error'); return; }
+    const btn = document.getElementById('plBtnSuggest');
+    const status = document.getElementById('plCopilotStatus');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    status.textContent = 'Claude is drafting a rule…';
+    document.getElementById('plExplanation').style.display = 'none';
+    document.getElementById('plSimResults').style.display = 'none';
+    document.getElementById('plValidation').textContent = '';
+
+    try {
+      const insertPosition = document.getElementById('plInsertPosition').value;
+      const result = await apiFetch('/policies/copilot', {
+        method: 'POST',
+        body: JSON.stringify({ intent, insert_position: insertPosition, simulation_limit: 1000 })
+      });
+
+      const { rule, validation, simulation, simulation_error } = result;
+      plCurrentRule = rule;
+
+      // Show rule in editor
+      const displayRule = Object.fromEntries(
+        Object.entries(rule).filter(([k]) => k !== 'copilot_explanation')
+      );
+      document.getElementById('plRuleJson').value = JSON.stringify(displayRule, null, 2);
+
+      // Show explanation
+      if (rule.copilot_explanation) {
+        document.getElementById('plExplanationText').textContent = rule.copilot_explanation;
+        document.getElementById('plExplanation').style.display = 'block';
+      }
+
+      // Show validation
+      if (!validation.valid) {
+        document.getElementById('plValidation').innerHTML = `<span style="color:#d63031">⚠ ${escHtml(validation.errors.join('; '))}</span>`;
+        document.getElementById('plBtnPublish').disabled = true;
+      } else {
+        document.getElementById('plValidation').innerHTML = `<span style="color:#00b894">✓ Rule is valid</span>`;
+        document.getElementById('plBtnPublish').disabled = false;
+      }
+
+      // Show simulation
+      if (simulation) {
+        plRenderSimulation(simulation);
+      } else if (simulation_error) {
+        document.getElementById('plSimResults').style.display = 'none';
+        status.textContent = `Simulation skipped: ${simulation_error}`;
+      }
+
+      status.textContent = '✓ Rule generated';
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate Rule';
+    }
+  });
+
+  // Manual simulate
+  document.getElementById('plBtnSimulate').addEventListener('click', async () => {
+    const raw = document.getElementById('plRuleJson').value.trim();
+    if (!raw) { showToast('Paste a rule JSON first', 'error'); return; }
+    let rule;
+    try { rule = JSON.parse(raw); }
+    catch (e) { showToast('Invalid JSON: ' + e.message, 'error'); return; }
+
+    const btn = document.getElementById('plBtnSimulate');
+    btn.disabled = true;
+    btn.textContent = 'Simulating…';
+    document.getElementById('plValidation').textContent = '';
+
+    try {
+      // Build a proposed config by prepending the rule to the current policy
+      const currentPolicy = await apiFetch('/policies/decisions');
+      const insertPosition = document.getElementById('plInsertPosition').value;
+      const proposedRules = insertPosition === 'top'
+        ? [rule, ...currentPolicy.rules]
+        : [...currentPolicy.rules, rule];
+      const proposed = { ...currentPolicy, rules: proposedRules };
+
+      const simulation = await apiFetch('/policies/simulate', {
+        method: 'POST',
+        body: JSON.stringify(proposed)
+      });
+
+      plCurrentRule = rule;
+      document.getElementById('plBtnPublish').disabled = false;
+      document.getElementById('plValidation').innerHTML = `<span style="color:#00b894">✓ Rule is valid</span>`;
+      plRenderSimulation(simulation);
+    } catch (err) {
+      if (err.message.includes('validation')) {
+        document.getElementById('plValidation').innerHTML = `<span style="color:#d63031">⚠ ${escHtml(err.message)}</span>`;
+      }
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Simulate Impact';
+    }
+  });
+
+  // Publish rule
+  document.getElementById('plBtnPublish').addEventListener('click', async () => {
+    if (!plCurrentRule) { showToast('No rule to publish', 'error'); return; }
+    const btn = document.getElementById('plBtnPublish');
+    btn.disabled = true;
+    btn.textContent = 'Publishing…';
+    try {
+      const insertPosition = document.getElementById('plInsertPosition').value;
+      const currentPolicy = await apiFetch('/policies/decisions');
+      const newRules = insertPosition === 'top'
+        ? [plCurrentRule, ...currentPolicy.rules]
+        : [...currentPolicy.rules, plCurrentRule];
+      const updated = { ...currentPolicy, rules: newRules };
+      await apiFetch('/policies/decisions', {
+        method: 'PATCH',
+        body: JSON.stringify(updated)
+      });
+      showToast(`Rule '${plCurrentRule.id}' published ✓`, 'success');
+      btn.textContent = 'Published ✓';
+      btn.disabled = true;
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Publish Rule';
+    }
+  });
+}
+
+function plRenderSimulation(simulation) {
+  document.getElementById('plSimResults').style.display = 'block';
+  document.getElementById('plSimSummary').innerHTML = plRenderSummary(simulation);
+  plRenderMix('plMixBefore', simulation.decision_mix && simulation.decision_mix.before);
+  plRenderMix('plMixAfter', simulation.decision_mix && simulation.decision_mix.after);
+  document.getElementById('plTransitions').innerHTML = plRenderTransitions(simulation.transitions);
+  document.getElementById('plNeverFired').innerHTML = plRenderNeverFired(simulation.rules_never_fired);
+  document.getElementById('plSamples').innerHTML = plRenderSamples(simulation.changed_samples);
+}
+
 </script>
 </body>
 </html>
