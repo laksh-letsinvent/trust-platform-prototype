@@ -31,6 +31,25 @@
       "display_message": "For your security, we need to verify your identity before continuing."
     },
     {
+      "id": "frictionless_high_ambient_trust",
+      "enabled": true,
+      "description": "Frictionless allow: very high ambient trust (90+) on Tier1/Tier2 — loyal customer skip step-up",
+      "condition": { "ambient_trust_gte": 90, "actionTier": ["Tier1", "Tier2"] },
+      "decision": "ALLOW",
+      "reason": "High ambient trust from consistent behaviour; no additional authentication required.",
+      "display_message": "All good — your account history confirms it's you."
+    },
+    {
+      "id": "step_up_low_ambient_trust",
+      "enabled": true,
+      "description": "Step-up: low ambient trust (under 30) regardless of action tier",
+      "condition": { "ambient_trust_lte": 30 },
+      "decision": "STEP_UP",
+      "step_up_type": "AL_PLUS_1",
+      "reason": "Low ambient trust from recent suspicious signals; additional verification required.",
+      "display_message": "For your security, we need a quick check — your recent account activity flagged a concern."
+    },
+    {
       "id": "step_up_vpn_high_tier",
       "enabled": true,
       "description": "Step-up selfie: VPN detected on high-value action",

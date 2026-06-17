@@ -30,6 +30,8 @@ const enrichmentOrchestrator = require('./adapters/enrichmentOrchestrator');
 const attackScenarios = require('./scripts/attack-scenarios');
 const policyVersioning = require('./policyVersioning');
 const rulePerformance = require('./rulePerformance');
+const ambientTrustStore = require('./ambientTrustStore');
+const abExperiment = require('./abExperiment');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -391,6 +393,7 @@ app.post('/trust/step-up/complete', async (req, res) => {
 
         if (stepOutcome === 'APPROVED') {
             store.addKnownDevice(session.customer_id, session.device_id).catch(() => {});
+            ambientTrustStore.recordSuccess(session.customer_id, completed_auth_level).catch(() => {});
         }
 
         await sessionStore.updateSession(reference_id, {
@@ -867,9 +870,135 @@ app.get('/trust/decision/explain/:reference_id', async (req, res) => {
     return res.status(404).json({ error: 'Decision not found. Session may have expired.' });
 });
 
+// ─── Ambient Trust Score ──────────────────────────────────────────────────────
+
+app.get('/trust/ats/:customerId', async (req, res) => {
+    const [score, history] = await Promise.all([
+        ambientTrustStore.getScore(req.params.customerId),
+        ambientTrustStore.getHistory(req.params.customerId),
+    ]);
+    res.json({ customer_id: req.params.customerId, score, history });
+});
+
+// ─── A/B Experiment ───────────────────────────────────────────────────────────
+
+app.post('/experiments/start', apiKey, (req, res) => {
+    const { id, name, treatmentConfig, splitPct } = req.body;
+    if (!id || !treatmentConfig) return res.status(400).json({ error: 'id and treatmentConfig required' });
+    const { validateDecisionsConfig } = require('./policyEngine');
+    const { valid, errors } = validateDecisionsConfig(treatmentConfig);
+    if (!valid) return res.status(400).json({ error: 'Invalid treatment config', errors });
+    abExperiment.setExperiment({ id, name: name || id, treatmentConfig, splitPct: splitPct ?? 50 });
+    res.json({ ok: true, experiment: abExperiment.getActiveExperiment() });
+});
+
+app.delete('/experiments/active', apiKey, (req, res) => {
+    abExperiment.clearExperiment();
+    res.json({ ok: true });
+});
+
+app.get('/experiments/active', (req, res) => {
+    const exp = abExperiment.getActiveExperiment();
+    if (!exp) return res.json({ active: false });
+    res.json({ active: true, id: exp.id, name: exp.name, splitPct: exp.splitPct, startedAt: exp.startedAt });
+});
+
+app.get('/experiments/results', async (req, res) => {
+    const exp = abExperiment.getActiveExperiment();
+    if (!exp) return res.json({ active: false });
+    if (!db.isConfigured()) return res.json({ active: true, id: exp.id, note: 'Postgres required for experiment results' });
+    try {
+        const result = await db.query(
+            `SELECT variant, decision, COUNT(*) as count
+             FROM decisions
+             WHERE experiment_id = $1 AND variant IS NOT NULL
+             GROUP BY variant, decision
+             ORDER BY variant, decision`,
+            [exp.id]
+        );
+        const rows = result.rows || [];
+        const byVariant = {};
+        for (const row of rows) {
+            const v = row.variant;
+            if (!byVariant[v]) byVariant[v] = { total: 0, decisions: {} };
+            byVariant[v].decisions[row.decision] = parseInt(row.count, 10);
+            byVariant[v].total += parseInt(row.count, 10);
+        }
+        res.json({ active: true, id: exp.id, name: exp.name, splitPct: exp.splitPct, startedAt: exp.startedAt, results: byVariant });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── Daemon control (dev only) ────────────────────────────────────────────────
+
+async function getDaemonStatus() {
+    return new Promise((resolve) => {
+        try {
+            const pm2 = require('pm2');
+            pm2.connect(true, (err) => {
+                if (err) return resolve({ running: false, reason: 'PM2 connect failed' });
+                pm2.describe('trust-traffic', (err2, desc) => {
+                    pm2.disconnect();
+                    if (err2 || !desc || !desc.length) return resolve({ running: false });
+                    const proc = desc[0];
+                    const running = proc.pm2_env && proc.pm2_env.status === 'online';
+                    const uptime = running && proc.pm2_env.pm_uptime ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : null;
+                    resolve({ running, uptime_sec: uptime });
+                });
+            });
+        } catch { resolve({ running: false, reason: 'PM2 not available — start daemon manually: node scripts/traffic-daemon.js' }); }
+    });
+}
+
+app.get('/dev/daemon/status', async (req, res) => {
+    res.json(await getDaemonStatus());
+});
+
+app.post('/dev/daemon/start', async (req, res) => {
+    try {
+        const pm2 = require('pm2');
+        pm2.connect(true, (err) => {
+            if (err) return res.json({ ok: false, reason: 'PM2 connect failed' });
+            pm2.start({ name: 'trust-traffic', script: 'scripts/traffic-daemon.js', env: { PORT: String(PORT) } }, (err2) => {
+                pm2.disconnect();
+                if (err2) return res.json({ ok: false, reason: err2.message });
+                res.json({ ok: true });
+            });
+        });
+    } catch { res.json({ ok: false, reason: 'PM2 not available — start daemon manually: node scripts/traffic-daemon.js' }); }
+});
+
+app.post('/dev/daemon/stop', async (req, res) => {
+    try {
+        const pm2 = require('pm2');
+        pm2.connect(true, (err) => {
+            if (err) return res.json({ ok: false, reason: 'PM2 connect failed' });
+            pm2.stop('trust-traffic', (err2) => {
+                pm2.disconnect();
+                if (err2) return res.json({ ok: false, reason: err2.message });
+                res.json({ ok: true });
+            });
+        });
+    } catch { res.json({ ok: false, reason: 'PM2 not available' }); }
+});
+
+// ─── Adapter status ───────────────────────────────────────────────────────────
+
+app.get('/status/adapters', (req, res) => {
+    const stats = enrichmentOrchestrator.getAdapterStats ? enrichmentOrchestrator.getAdapterStats() : {};
+    res.json({
+        ip_enrichment:  { configured: true,  ...( stats.ip_enrichment || {}) },
+        abuseipdb:      { configured: !!process.env.ABUSEIPDB_API_KEY, ...(stats.abuseipdb || {}) },
+        hibp:           { configured: !!process.env.HIBP_API_KEY,      ...(stats.hibp || {}) },
+        greynoise:      { configured: true,  ...(stats.greynoise || {}) },
+    });
+});
+
 // ─── System status ───────────────────────────────────────────────────────────
 
-app.get('/status', (req, res) => {
+app.get('/status', async (req, res) => {
+    const daemonStatus = await getDaemonStatus().catch(() => ({ running: false }));
     res.json({
         redis: cache.cacheAvailable,
         velocityTracking: velocityEngine.isAvailable(),
@@ -884,6 +1013,9 @@ app.get('/status', (req, res) => {
         },
         attackTriggersEnabled: ATTACK_TRIGGERS_ENABLED,
         sseClients: sseClients.size,
+        daemon: daemonStatus,
+        node_version: process.version,
+        uptime_sec: Math.floor(process.uptime()),
     });
 });
 
@@ -914,6 +1046,15 @@ async function start() {
 
     // Background rule performance refresh every 30 minutes
     setInterval(() => rulePerformance.getRuleStats().catch(() => {}), 30 * 60 * 1000);
+
+    // ATS decay toward baseline — 2 pts/day, checked every 6 hours
+    setInterval(() => ambientTrustStore.applyDecay().catch(() => {}), 6 * 60 * 60 * 1000);
+
+    // Add A/B experiment columns to decisions table if Postgres is configured
+    if (db.isConfigured()) {
+        db.query(`ALTER TABLE decisions ADD COLUMN IF NOT EXISTS experiment_id TEXT`).catch(() => {});
+        db.query(`ALTER TABLE decisions ADD COLUMN IF NOT EXISTS variant TEXT`).catch(() => {});
+    }
 
     app.listen(PORT, () => {
         console.log(`Trust Decision server running at http://localhost:${PORT}`);

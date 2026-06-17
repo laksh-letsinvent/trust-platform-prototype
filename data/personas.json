@@ -192,7 +192,7 @@
       "geography": "UK",
       "device_ids": ["bot-dev-a1", "bot-dev-a2", "bot-dev-a3", "bot-dev-a4", "bot-dev-a5"],
       "action_weights": { "login": 100 },
-      "request_interval_ms": { "min": 200, "max": 500 },
+      "request_interval_ms": { "min": 15000, "max": 60000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     },
@@ -206,7 +206,7 @@
       "geography": "DE",
       "device_ids": ["bot-dev-b1", "bot-dev-b2", "bot-dev-b3", "bot-dev-b4"],
       "action_weights": { "login": 80, "balance_inquiry": 20 },
-      "request_interval_ms": { "min": 250, "max": 600 },
+      "request_interval_ms": { "min": 20000, "max": 70000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     },
@@ -220,7 +220,7 @@
       "geography": "FR",
       "device_ids": ["bot-dev-g1", "bot-dev-g2", "bot-dev-g3"],
       "action_weights": { "login": 50, "account_recovery": 50 },
-      "request_interval_ms": { "min": 300, "max": 800 },
+      "request_interval_ms": { "min": 18000, "max": 75000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     },
@@ -234,7 +234,7 @@
       "geography": "DE",
       "device_ids": ["bot-dev-d1", "bot-dev-d2", "bot-dev-d3", "bot-dev-d4", "bot-dev-d5"],
       "action_weights": { "login": 40, "p2p_send": 60 },
-      "request_interval_ms": { "min": 200, "max": 400 },
+      "request_interval_ms": { "min": 15000, "max": 55000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     },
@@ -248,7 +248,7 @@
       "geography": "DE",
       "device_ids": ["ato-new-device-l1", "ato-new-device-l2"],
       "action_weights": { "login": 30, "account_recovery": 40, "wire_transfer": 20, "change_password": 10 },
-      "request_interval_ms": { "min": 2000, "max": 8000 },
+      "request_interval_ms": { "min": 20000, "max": 80000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     },
@@ -262,7 +262,7 @@
       "geography": "FR",
       "device_ids": ["ato-new-device-m1", "ato-new-device-m2"],
       "action_weights": { "login": 25, "large_transfer": 35, "account_recovery": 30, "change_password": 10 },
-      "request_interval_ms": { "min": 3000, "max": 10000 },
+      "request_interval_ms": { "min": 25000, "max": 90000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     },
@@ -276,7 +276,7 @@
       "geography": "FR",
       "device_ids": ["ato-bulk-d1", "ato-bulk-d2", "ato-bulk-d3"],
       "action_weights": { "login": 20, "wire_transfer": 30, "account_recovery": 30, "change_password": 20 },
-      "request_interval_ms": { "min": 1500, "max": 6000 },
+      "request_interval_ms": { "min": 20000, "max": 75000 },
       "active_hours": { "start": 0, "end": 24 },
       "attack_persona": true
     }

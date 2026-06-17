@@ -112,6 +112,10 @@ function matchesCondition(condition, context) {
         if (context.ip_abuse_score < condition.ip_abuse_score_gte) return false;
     }
 
+    // Ambient Trust Score conditions
+    if (condition.ambient_trust_gte != null && (context.ambientTrustScore ?? 50) < condition.ambient_trust_gte) return false;
+    if (condition.ambient_trust_lte != null && (context.ambientTrustScore ?? 50) > condition.ambient_trust_lte) return false;
+
     return true;
 }
 
@@ -150,6 +154,8 @@ function conditionToSummary(condition) {
     if (condition.is_greynoise_bot != null) parts.push(`is_greynoise_bot = ${condition.is_greynoise_bot}`);
     if (condition.ato_signal_count_gte != null) parts.push(`ato_signal_count >= ${condition.ato_signal_count_gte}`);
     if (condition.ip_abuse_score_gte != null) parts.push(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`);
+    if (condition.ambient_trust_gte != null) parts.push(`ambientTrustScore >= ${condition.ambient_trust_gte}`);
+    if (condition.ambient_trust_lte != null) parts.push(`ambientTrustScore <= ${condition.ambient_trust_lte}`);
     return parts.length ? parts.join(', ') : 'none';
 }
 
@@ -222,6 +228,8 @@ function explainCondition(condition, context) {
         if (context.ip_abuse_score == null) { check(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`, false, 'unavailable'); return steps; }
         if (!check(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`, context.ip_abuse_score >= condition.ip_abuse_score_gte, context.ip_abuse_score)) return steps;
     }
+    if (condition.ambient_trust_gte != null && !check(`ambientTrustScore >= ${condition.ambient_trust_gte}`, (context.ambientTrustScore ?? 50) >= condition.ambient_trust_gte, context.ambientTrustScore ?? 50)) return steps;
+    if (condition.ambient_trust_lte != null && !check(`ambientTrustScore <= ${condition.ambient_trust_lte}`, (context.ambientTrustScore ?? 50) <= condition.ambient_trust_lte, context.ambientTrustScore ?? 50)) return steps;
 
     return steps;
 }
@@ -311,6 +319,8 @@ const VALID_CONDITION_KEYS = [
     'vpn_detected', 'proxy_detected', 'hosting_detected',
     'tor_detected', 'email_breached', 'ato_signal_count_gte',
     'ip_abuse_score_gte', 'is_new_device', 'is_greynoise_bot',
+    // Ambient Trust Score conditions (Phase 5)
+    'ambient_trust_gte', 'ambient_trust_lte',
 ];
 
 /**

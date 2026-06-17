@@ -1,7 +1,7 @@
 // decisionEngine.js
 
 const { computeContext } = require('./confidenceEngine');
-const { evaluate } = require('./policyEngine');
+const { evaluate, evaluateWith } = require('./policyEngine');
 const idvRouting = require('./idvRouting');
 const cache = require('./cache');
 const store = require('./data/store');
@@ -10,6 +10,8 @@ const analytics = require('./analytics');
 const amplitude = require('./amplitude');
 const sessionStore = require('./sessionStore');
 const enrichmentOrchestrator = require('./adapters/enrichmentOrchestrator');
+const ambientTrustStore = require('./ambientTrustStore');
+const abExperiment = require('./abExperiment');
 
 /**
  * Generates a human-readable reference ID for actionable decisions.
@@ -101,6 +103,19 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
     const velocity = await velocityEngine.getVelocity(customer_id);
     await velocityEngine.recordRequest(customer_id);
 
+    // Ambient Trust Score — non-blocking, falls back to 50 on Redis unavailability
+    const ambientTrustScore = await ambientTrustStore.getScore(customer_id).catch(() => 50);
+
+    // Record suspicion signals into ATS
+    if (enrichment.is_new_device && user != null)
+        ambientTrustStore.recordSuspicion(customer_id, 'new_device').catch(() => {});
+    if (enrichment.is_vpn || enrichment.is_proxy)
+        ambientTrustStore.recordSuspicion(customer_id, 'vpn_detected').catch(() => {});
+    if (enrichment.email_breached && enrichment.breach_count > 2)
+        ambientTrustStore.recordSuspicion(customer_id, 'breach_detected').catch(() => {});
+    if (velocity && velocity.velocity_1m > 5)
+        ambientTrustStore.recordSuspicion(customer_id, 'velocity_burst').catch(() => {});
+
     trace.signals = {
         fraudScore,
         deviceScore,
@@ -109,6 +124,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         velocity,
         velocity_tracking: velocityEngine.isAvailable() ? 'active' : 'unavailable (Redis not connected)',
         enrichment: Object.keys(enrichment).length ? enrichment : null,
+        ambientTrustScore,
     };
     trace.enrichment = Object.keys(enrichment).length ? enrichment : null;
 
@@ -122,6 +138,8 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         velocity,
         enrichment,
     });
+    // Attach ATS to context so policyEngine can match ambient_trust_gte/lte conditions
+    context.ambientTrustScore = ambientTrustScore;
 
     trace.context = {
         fraudScore: context.fraudScore,
@@ -138,11 +156,25 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         effectiveConfidence: context.effectiveConfidence,
         confidenceMeetsAction: context.confidenceMeetsAction,
         currentAuthLevel: context.currentAuthLevel,
-        velocity: context.velocity
+        velocity: context.velocity,
+        ambientTrustScore,
     };
     trace.confidence_calculation = context.confidenceTrace || null;
 
-    const policyResult = evaluate(context);
+    // A/B experiment: assign variant and evaluate with treatment/control config
+    const experiment = abExperiment.getActiveExperiment();
+    let experimentId = null;
+    let variant = null;
+    let policyResult;
+    if (experiment) {
+        experimentId = experiment.id;
+        variant = abExperiment.assignVariant(customer_id, experiment.id, experiment.splitPct);
+        policyResult = variant === 'treatment'
+            ? evaluateWith(experiment.treatmentConfig, context)
+            : evaluate(context);
+    } else {
+        policyResult = evaluate(context);
+    }
 
     // Generate reference ID for actionable decisions
     const prefixMap = { STEP_UP: 'TXN', MANUAL_REVIEW: 'CASE', DENY: 'INC' };
@@ -192,6 +224,8 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
             outcome: null,                      // null = primary decision record
             original_reference_id: analyticsExtra.original_reference_id || null,
             caller_key_id: analyticsExtra.callerKeyId || null,
+            experiment_id: experimentId || null,
+            variant: variant || null,
             // Snapshot of raw signals at decision time, for policy simulation replay
             replay: {
                 device_id,
