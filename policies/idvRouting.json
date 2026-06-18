@@ -18,11 +18,11 @@
       "splits": [
         {
           "vendor": "vendor_1",
-          "percent": 70
+          "percent": 60
         },
         {
           "vendor": "vendor_2",
-          "percent": 30
+          "percent": 40
         }
       ]
     },

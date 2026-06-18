@@ -147,6 +147,9 @@ app.get('/decisions', async (req, res) => {
             offset,
             customerFilter: req.query.customer_id || null,
             decisionFilter: req.query.decision || null,
+            ruleFilter: req.query.rule_id || null,
+            riskFilter: req.query.risk_level || null,
+            enrichmentSignal: req.query.enrichment_signal || null,
         });
         res.json({ total, limit, offset, decisions });
     } catch (err) {
@@ -542,6 +545,7 @@ app.get('/trust/review/queue', (req, res) => {
             signals: s.original_decision && s.original_decision.trace ? s.original_decision.trace.context : null,
             rule_id: s.original_decision && s.original_decision.trace && s.original_decision.trace.policy ? s.original_decision.trace.policy.ruleId : null,
             reason: s.original_decision ? s.original_decision.reason : null,
+            enrichment: s.original_decision && s.original_decision.trace ? s.original_decision.trace.enrichment || null : null,
             created_at: s.created_at,
             expires_at: s.expires_at,
         })),
@@ -870,6 +874,44 @@ app.get('/trust/decision/explain/:reference_id', async (req, res) => {
     return res.status(404).json({ error: 'Decision not found. Session may have expired.' });
 });
 
+// ─── ATS decay config ─────────────────────────────────────────────────────────
+
+app.get('/trust/ats/config', async (req, res) => {
+    res.json(await ambientTrustStore.getDecayConfig());
+});
+
+app.patch('/trust/ats/config', apiKey, async (req, res) => {
+    const { decayRate } = req.body;
+    if (decayRate == null || isNaN(parseFloat(decayRate)) || decayRate < 0 || decayRate > 20)
+        return res.status(400).json({ error: 'decayRate must be a number 0–20' });
+    await ambientTrustStore.setDecayConfig({ decayRate });
+    res.json(await ambientTrustStore.getDecayConfig());
+});
+
+// ─── Cache TTL config ─────────────────────────────────────────────────────────
+
+app.get('/cache/config', (req, res) => {
+    res.json(cache.getTTLs());
+});
+
+app.patch('/cache/config', apiKey, (req, res) => {
+    const { fraudTtlSec, deviceTtlSec } = req.body;
+    if (fraudTtlSec  != null && (isNaN(parseInt(fraudTtlSec))  || fraudTtlSec  < 10)) return res.status(400).json({ error: 'fraudTtlSec must be ≥ 10' });
+    if (deviceTtlSec != null && (isNaN(parseInt(deviceTtlSec)) || deviceTtlSec < 10)) return res.status(400).json({ error: 'deviceTtlSec must be ≥ 10' });
+    cache.setTTLs({ fraudTtlSec, deviceTtlSec });
+    res.json(cache.getTTLs());
+});
+
+// ─── Adapter enable/disable ───────────────────────────────────────────────────
+
+app.patch('/adapters/config', apiKey, (req, res) => {
+    const { adapter, enabled } = req.body;
+    if (!adapter) return res.status(400).json({ error: 'adapter required' });
+    if (enabled) enrichmentOrchestrator.enableAdapter(adapter);
+    else enrichmentOrchestrator.disableAdapter(adapter);
+    res.json(enrichmentOrchestrator.getAdapterStates());
+});
+
 // ─── Ambient Trust Score ──────────────────────────────────────────────────────
 
 app.get('/trust/ats/:customerId', async (req, res) => {
@@ -878,6 +920,16 @@ app.get('/trust/ats/:customerId', async (req, res) => {
         ambientTrustStore.getHistory(req.params.customerId),
     ]);
     res.json({ customer_id: req.params.customerId, score, history });
+});
+
+app.patch('/trust/ats/:customerId', apiKey, async (req, res) => {
+    const { score } = req.body;
+    if (typeof score !== 'number' || score < 0 || score > 100) {
+        return res.status(400).json({ error: 'score must be a number 0–100' });
+    }
+    await ambientTrustStore.setScore(req.params.customerId, score);
+    const newScore = await ambientTrustStore.getScore(req.params.customerId);
+    res.json({ customer_id: req.params.customerId, score: newScore });
 });
 
 // ─── A/B Experiment ───────────────────────────────────────────────────────────
@@ -986,13 +1038,7 @@ app.post('/dev/daemon/stop', async (req, res) => {
 // ─── Adapter status ───────────────────────────────────────────────────────────
 
 app.get('/status/adapters', (req, res) => {
-    const stats = enrichmentOrchestrator.getAdapterStats ? enrichmentOrchestrator.getAdapterStats() : {};
-    res.json({
-        ip_enrichment:  { configured: true,  ...( stats.ip_enrichment || {}) },
-        abuseipdb:      { configured: !!process.env.ABUSEIPDB_API_KEY, ...(stats.abuseipdb || {}) },
-        hibp:           { configured: !!process.env.HIBP_API_KEY,      ...(stats.hibp || {}) },
-        greynoise:      { configured: true,  ...(stats.greynoise || {}) },
-    });
+    res.json(enrichmentOrchestrator.getAdapterStates());
 });
 
 // ─── System status ───────────────────────────────────────────────────────────

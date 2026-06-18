@@ -51,7 +51,10 @@
               "is_new_device":          { "type": "boolean" },
               "is_greynoise_bot":       { "type": "boolean" },
               "ato_signal_count_gte":   { "type": "number", "minimum": 0, "maximum": 3 },
-              "ip_abuse_score_gte":     { "type": "number", "minimum": 0, "maximum": 100 }
+              "ip_abuse_score_gte":     { "type": "number", "minimum": 0, "maximum": 100 },
+              "ambient_trust_gte":      { "type": "number", "minimum": 0, "maximum": 100 },
+              "ambient_trust_lte":      { "type": "number", "minimum": 0, "maximum": 100 },
+              "breach_count":           { "type": "number", "minimum": 0 }
             }
           }
         }

@@ -57,7 +57,7 @@ See `.env.example`. Key vars:
 - `GOOGLE_SHEETS_SPREADSHEET_ID` + `GOOGLE_APPLICATION_CREDENTIALS` — enable Sheets as data source
 - `REDIS_URL` — enables caching and velocity tracking (defaults to `redis://localhost:6379`)
 - `SHEETS_CACHE_MS` — Sheets cache TTL (default 60000ms)
-- `CACHE_FRAUD_TTL_SEC` / `CACHE_DEVICE_TTL_SEC` — Redis cache TTLs
+- `CACHE_FRAUD_TTL_SEC` / `CACHE_DEVICE_TTL_SEC` — Redis cache TTL defaults (also runtime-adjustable via `PATCH /cache/config`)
 
 ## Architecture
 
@@ -65,11 +65,12 @@ This is a **trust decision engine** for banking/fintech. Every customer action r
 
 ```
 POST /trust/decision
-  → decisionEngine.js   (orchestrates the pipeline)
-  → confidenceEngine.js (computes risk level + effective confidence from signals)
-  → policyEngine.js     (evaluates ordered decision rules → ALLOW / STEP_UP / DENY / MANUAL_REVIEW)
-  → idvRouting.js       (if step_up_type=IDV, selects vendor via routing strategy)
-  → analytics.js        (records decision to in-memory ring buffer + decisions.jsonl)
+  → decisionEngine.js          (orchestrates the pipeline)
+  → enrichmentOrchestrator.js  (parallel enrichment: IP/VPN/proxy/tor, AbuseIPDB, HIBP, GreyNoise)
+  → confidenceEngine.js        (computes risk level + effective confidence from signals)
+  → policyEngine.js            (evaluates ordered decision rules → ALLOW / STEP_UP / DENY / MANUAL_REVIEW)
+  → idvRouting.js              (if step_up_type=IDV, selects vendor via routing strategy)
+  → analytics.js               (records decision to in-memory ring buffer + decisions.jsonl)
 ```
 
 ### Phase 1 additions
@@ -91,9 +92,9 @@ POST /trust/decision
 
 ### Policy files (`policies/`)
 
-- **`confidence.json`** — Defines: risk level bands (fraud score → LOW/MEDIUM/HIGH), action tier requirements (required confidence per tier), Auth Assurance Level (AL1–AL4) requirements per tier, and the effective confidence formula: `(deviceScore/100 × deviceWeight) + ((100-fraudScore)/100 × fraudWeight)`. `deviceWeight + fraudWeight` must sum to 100.
+- **`confidence.json`** — Defines: risk level bands (fraud score → LOW/MEDIUM/HIGH), action tier requirements (required confidence per tier), Auth Assurance Level (AL1–AL4) requirements per tier, and the effective confidence formula: `(deviceScore/100 × deviceWeight) + ((100-fraudScore)/100 × fraudWeight)`. `deviceWeight + fraudWeight` must sum to 100. Optional `useAuthenticatorMax: true` overrides with `max(calculated, authenticatorConfidence)`.
 
-- **`decisions.json`** — Ordered array of rules; first match wins. Each rule has a `condition` (can match on fraudScoreMin/Max, deviceScoreMin/Max, riskLevel, geography, actionTier, alMeetsRequired, confidenceMeetsAction, currentAuthLevelLessThan, velocity_1m_gt, velocity_5m_gt, velocity_15m_gt) and produces a `decision` + optional `step_up_type`. Dynamic step_up_type tokens: `AL_PLUS_1` (one AL above required) and `REQUIRED_AL` (exact required AL). Velocity rules (`deny_velocity_burst`, `manual_review_velocity_elevated`) require Redis.
+- **`decisions.json`** — Ordered array of rules; first match wins. Each rule has a `condition` (can match on fraudScoreMin/Max, deviceScoreMin/Max, riskLevel, geography, actionTier, alMeetsRequired, confidenceMeetsAction, currentAuthLevelLessThan, velocity_1m_gt, velocity_5m_gt, velocity_15m_gt, vpn_detected, proxy_detected, tor_detected, is_new_device, email_breached, is_greynoise_bot, ato_signal_count_gte, ip_abuse_score_gte, ambient_trust_gte, ambient_trust_lte, breach_count) and produces a `decision` + optional `step_up_type`. Dynamic step_up_type tokens: `AL_PLUS_1` (one AL above required) and `REQUIRED_AL` (exact required AL). Velocity rules (`deny_velocity_burst`, `manual_review_velocity_elevated`) require Redis.
 
 - **`idvRouting.json`** — IDV vendor routing strategies: `round_robin`, `percent_split`, `time_based`, `geo_based`. Active strategy set by `active_strategy`.
 
@@ -103,11 +104,35 @@ POST /trust/decision
 
 ### Caching (`cache.js`)
 
-Redis-backed, no-op when Redis is unavailable. Caches fraud scores (key: `fraud:{customerId}:{action}:{deviceId}`) and device scores (key: `device:{deviceId}`). The same Redis client is shared with `velocityEngine.js` for sorted-set velocity tracking.
+Redis-backed, no-op when Redis is unavailable. Caches fraud scores (key: `fraud:{customerId}:{action}:{deviceId}`) and device scores (key: `device:{deviceId}`). TTLs default to env vars but are **runtime-adjustable** via `PATCH /cache/config` — changes take effect immediately for new cache writes. The same Redis client is shared with `velocityEngine.js` for sorted-set velocity tracking.
+
+### Enrichment adjustments (applied in `decisionEngine.js`)
+
+Enrichment runs in parallel before scoring. Signals adjust the raw scores additively:
+
+| Signal | Adjustment |
+|--------|-----------|
+| `is_tor = true` | fraudScore +40 |
+| `is_greynoise_bot = true` | fraudScore +40 |
+| `is_proxy or is_vpn = true` | fraudScore +15 |
+| `email_breached and breach_count > 2` | fraudScore +20 |
+| `ip_abuse_score > 80` | deviceScore −40 |
+| `ip_abuse_score > 50` | deviceScore −20 |
+| `is_new_device = true` (known user) | deviceScore −30 |
+
+Adapters can be runtime-disabled per-adapter via `PATCH /adapters/config` without restarting.
+
+### Ambient Trust Score (`ambientTrustStore.js`)
+
+Redis-backed per-customer score 0–100 (default 50, clamped 5–95). Updated on step-up completions and enrichment signals. **Decay rate is runtime-configurable** via `PATCH /trust/ats/config` (stored in `ats:cfg` Redis hash); defaults to 2 pts per 6 h cycle. The 6 h interval itself requires a restart to change. New customers always start at 50.
 
 ### Policy cache invalidation
 
 Each policy module (`confidenceEngine`, `policyEngine`, `idvRouting`) caches its parsed JSON in memory. `PATCH /policies/*` endpoints call `clearCache()` on the relevant module after writing the updated file.
+
+### Policy versioning (`policyVersioning.js`)
+
+When `DATABASE_URL` is set, each `PATCH /policies/:name` saves a version row. `getVersions()` returns versions newest-first with `id`, `version_number`, `author`, `created_at`, `simulation_summary`, `content_hash`. `diffVersions(a, b)` returns `{ added, removed, modified, unchanged_count }` for rules-based policies.
 
 ### Decision log
 
@@ -115,7 +140,8 @@ Every decision is written to `decisions.jsonl` (append-only JSONL) and an in-mem
 
 ### Adapters (`adapters/`)
 
-`fraudAdapter.js` and `deviceAdapter.js` are thin wrappers over `data/store.js` — currently used for direct lookups but designed as extension points for external fraud/device scoring APIs.
+- `fraudAdapter.js` / `deviceAdapter.js` — thin wrappers over `data/store.js`.
+- `enrichmentOrchestrator.js` — runs IP geolocation, AbuseIPDB, HIBP, and GreyNoise in parallel. Exposes `enableAdapter(name)` / `disableAdapter(name)` / `getAdapterStates()` for per-adapter runtime toggling. Disabled adapters resolve immediately to `null` (contribute no signals). IP geolocation and GreyNoise require no API key; AbuseIPDB needs `ABUSEIPDB_API_KEY`; HIBP needs `HIBP_API_KEY`.
 
 ## API surface
 
@@ -126,16 +152,46 @@ Every decision is written to `decisions.jsonl` (append-only JSONL) and an in-mem
 | GET/PATCH | `/policies/confidence` | Confidence policy (PATCH supports partial merge; validates weights sum to 100) |
 | GET/PATCH | `/policies/decisions` | Decision rules (PATCH merges rules by `id`) |
 | GET/PATCH | `/policies/idvRouting` | IDV routing policy |
+| GET | `/policies/:name/history` | Policy version history (requires Postgres). Query: `?limit=` |
+| GET | `/policies/:name/diff/:idA/:idB` | Diff two policy versions. Returns `{ added, removed, modified, unchanged_count }` |
+| POST | `/policies/:name/rollback/:id` | Restore a policy version. Replaces live policy immediately. |
 | POST | `/policies/velocity-toggle` | Toggle velocity rules on/off. Body: `{ "enabled": true\|false }` |
-| POST | `/policies/simulate` | Replay decision history against a proposed decisions config (read-only). Body: full decisions config `{ rules, default }`. Query: `?limit=`. |
-| POST | `/policies/copilot` | NL → rule + simulation. Body: `{ intent, insert_position?, simulation_limit? }`. Requires `ANTHROPIC_API_KEY`. Returns `{ rule, validation, simulation, note }`. |
-| GET | `/policies/copilot/status` | Whether AI copilot is available (ANTHROPIC_API_KEY set). |
-| GET | `/analytics` | Aggregated decision stats (optional `?customer_id=` filter) |
+| POST | `/policies/simulate` | Replay decision history against a proposed decisions config (read-only). Body: `{ rules, default }`. Query: `?limit=` |
+| POST | `/policies/copilot` | NL → rule + simulation. Body: `{ intent, insert_position?, simulation_limit? }`. Requires `ANTHROPIC_API_KEY`. Returns `{ rule, validation, simulation, note }` |
+| GET | `/policies/copilot/status` | Whether AI copilot is available (ANTHROPIC_API_KEY set) |
+| GET | `/analytics` | Aggregated decision stats (optional `?customer_id=` filter). Includes `stepUpOutcomes`, `reviewOutcomes` |
 | DELETE | `/analytics` | Clear in-memory ring buffer |
-| GET | `/decisions` | Paginated decision log from JSONL. Params: `limit`, `offset`, `customer_id`, `decision` |
-| GET | `/status` | Redis/velocity/Sheets availability |
+| GET | `/decisions` | Paginated decision log. Params: `limit`, `offset`, `customer_id`, `decision`, `rule_id`, `risk_level`, `enrichment_signal` (one of: `is_tor`, `is_vpn`, `is_proxy`, `is_hosting`, `is_new_device`, `email_breached`, `is_greynoise_bot`) |
+| GET | `/trust/review/queue` | Pending manual review cases. Each case includes `enrichment` field from original decision trace |
+| POST | `/trust/review/:reference_id/feedback` | Submit review outcome. Body: `{ reviewer_id, outcome, notes?, fraud_score_override? }` |
+| GET | `/trust/ats/:customerId` | Ambient trust score + history (last 10 events) |
+| PATCH | `/trust/ats/:customerId` | Override ATS score. Body: `{ score: 0–100 }`. Requires API key |
+| GET | `/trust/ats/config` | ATS decay rate config. Returns `{ decayRate, intervalHours }` |
+| PATCH | `/trust/ats/config` | Set ATS decay rate. Body: `{ decayRate: 0–20 }`. Requires API key |
+| GET | `/cache/config` | Redis cache TTLs. Returns `{ fraudTtlSec, deviceTtlSec }` |
+| PATCH | `/cache/config` | Update cache TTLs at runtime. Body: `{ fraudTtlSec?, deviceTtlSec? }`. Requires API key |
+| GET | `/status/adapters` | Per-adapter status: `configured` (API key present) + `enabled` (not runtime-disabled) |
+| PATCH | `/adapters/config` | Enable/disable an enrichment adapter. Body: `{ adapter: string, enabled: boolean }`. Requires API key |
+| GET | `/status` | Redis/velocity/Sheets/Postgres availability |
 
 The frontend (`public/index.html`) is a single-page app served statically. Five tabs: Decision Simulator, Control Panel, Analytics, Review Queue, Policy Lab.
+
+### Control Panel cards
+
+| Card | What it controls |
+|------|-----------------|
+| Action tier thresholds | Required confidence % per tier (Tier1–Tier4) |
+| Risk bands | Fraud score thresholds for LOW/MEDIUM/HIGH (with live visual validator) |
+| Confidence formula weights | deviceWeight / fraudWeight + `useAuthenticatorMax` toggle |
+| Velocity enforcement | Enable/disable Redis velocity rules |
+| Velocity thresholds | 1 m burst deny threshold + 5 m elevated review threshold |
+| IDV routing | Active strategy + percent-split vendor weights |
+| ATS override | Look up + manually override a customer's ambient trust score |
+| ATS decay rate | Pts drifted toward baseline 50 per 6 h cycle (0–20, runtime) |
+| Cache TTLs | Fraud + device score Redis cache expiry (runtime, no restart needed) |
+| Traffic daemon | Start/stop synthetic traffic generator |
+| Adapters | Per-adapter enable/disable toggles + API key status |
+| A/B experiment | Create/stop rule experiments |
 
 ### Policy Lab (`simulationEngine.js`, `copilot.js`)
 
@@ -152,8 +208,18 @@ node scripts/generate-traffic.js --dry-run
 
 ### Decision log replay snapshots
 
-`analytics.js` `record()` now stores a `replay` field on each primary decision record (outcome === null). Shape:
+`analytics.js` `record()` stores a `replay` field on each primary decision record (outcome === null). Shape:
 ```json
-{ "device_id", "current_auth_level", "fraudScore", "deviceScore", "geography", "velocity" }
+{
+  "device_id", "current_auth_level", "fraudScore", "deviceScore",
+  "geography", "velocity",
+  "enrichment": { "is_tor", "is_vpn", "is_proxy", "is_hosting", "ip_abuse_score",
+                  "email_breached", "breach_count", "is_greynoise_bot",
+                  "is_new_device", "ato_signal_count" }
+}
 ```
-Records without `replay` (written before this change) are skipped by the simulator — they're counted in `skipped_no_snapshot`.
+Records without `replay` (written before this change) are skipped by the simulator — counted in `skipped_no_snapshot`. The `enrichment` sub-object is used by `GET /decisions?enrichment_signal=is_tor` filtering.
+
+### Known ioredis API note
+
+This project uses **ioredis** (not node-redis). ioredis uses **lowercase** command names: `hset`, `hget`, `lpush`, `ltrim`, `lrange`, `scan`, `setex`, etc. Node-redis uses camelCase (`hSet`, `hGet`). Any new Redis code must use lowercase or ioredis will throw `TypeError: cl.XYZ is not a function`.

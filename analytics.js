@@ -66,7 +66,12 @@ function record(entry) {
 /**
  * Paginated decision log. Uses Postgres when configured, JSONL otherwise.
  */
-async function getDecisions({ limit = 100, offset = 0, customerFilter = null, decisionFilter = null } = {}) {
+const ALLOWED_ENRICHMENT_SIGNALS = new Set([
+    'is_tor', 'is_vpn', 'is_proxy', 'is_hosting', 'is_new_device',
+    'email_breached', 'is_greynoise_bot',
+]);
+
+async function getDecisions({ limit = 100, offset = 0, customerFilter = null, decisionFilter = null, ruleFilter = null, riskFilter = null, enrichmentSignal = null } = {}) {
     const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 1000);
     const safeOffset = Math.max(parseInt(offset, 10) || 0, 0);
 
@@ -80,6 +85,18 @@ async function getDecisions({ limit = 100, offset = 0, customerFilter = null, de
         if (decisionFilter) {
             countParams.push(decisionFilter);
             conditions.push(`decision = $${countParams.length}`);
+        }
+        if (ruleFilter) {
+            countParams.push(ruleFilter);
+            conditions.push(`rule_id = $${countParams.length}`);
+        }
+        if (riskFilter) {
+            countParams.push(riskFilter);
+            conditions.push(`risk_level = $${countParams.length}`);
+        }
+        if (enrichmentSignal && ALLOWED_ENRICHMENT_SIGNALS.has(enrichmentSignal)) {
+            // replay is stored as JSON text; cast to jsonb for field access
+            conditions.push(`(replay::jsonb)->'enrichment'->>'${enrichmentSignal}' = 'true'`);
         }
         const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
         const queryParams = [...countParams, safeLimit, safeOffset];
@@ -121,6 +138,10 @@ async function getDecisions({ limit = 100, offset = 0, customerFilter = null, de
     let rows = lines.map(l => { try { return JSON.parse(l); } catch (_) { return null; } }).filter(Boolean);
     if (customerFilter) rows = rows.filter(r => r.customer_id === customerFilter);
     if (decisionFilter) rows = rows.filter(r => r.decision === decisionFilter);
+    if (ruleFilter) rows = rows.filter(r => r.ruleId === ruleFilter || r.rule_id === ruleFilter);
+    if (riskFilter) rows = rows.filter(r => r.riskLevel === riskFilter || r.risk_level === riskFilter);
+    if (enrichmentSignal && ALLOWED_ENRICHMENT_SIGNALS.has(enrichmentSignal))
+        rows = rows.filter(r => r.replay?.enrichment?.[enrichmentSignal] === true);
     rows.reverse();
     return { total: rows.length, decisions: rows.slice(safeOffset, safeOffset + safeLimit) };
 }

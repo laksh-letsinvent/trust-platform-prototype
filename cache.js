@@ -6,8 +6,14 @@
  */
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-const FRAUD_TTL_SEC = parseInt(process.env.CACHE_FRAUD_TTL_SEC || '300', 10);   // 5 min
-const DEVICE_TTL_SEC = parseInt(process.env.CACHE_DEVICE_TTL_SEC || '600', 10); // 10 min
+let _fraudTtlSec  = parseInt(process.env.CACHE_FRAUD_TTL_SEC  || '300',  10);   // 5 min default
+let _deviceTtlSec = parseInt(process.env.CACHE_DEVICE_TTL_SEC || '600',  10);   // 10 min default
+
+function getTTLs() { return { fraudTtlSec: _fraudTtlSec, deviceTtlSec: _deviceTtlSec }; }
+function setTTLs({ fraudTtlSec, deviceTtlSec } = {}) {
+    if (fraudTtlSec  != null) _fraudTtlSec  = Math.max(10, Math.min(86400, parseInt(fraudTtlSec,  10) || _fraudTtlSec));
+    if (deviceTtlSec != null) _deviceTtlSec = Math.max(10, Math.min(86400, parseInt(deviceTtlSec, 10) || _deviceTtlSec));
+}
 
 let client = null;
 let cacheAvailable = false;
@@ -82,7 +88,7 @@ async function getCachedFraudScore(customerId, action, deviceId) {
 
 async function setCachedFraudScore(customerId, action, deviceId, score) {
     const key = fraudKey(customerId, action, deviceId);
-    await set(key, score, FRAUD_TTL_SEC);
+    await set(key, score, _fraudTtlSec);
 }
 
 async function getCachedDeviceScore(deviceId) {
@@ -93,7 +99,7 @@ async function getCachedDeviceScore(deviceId) {
 
 async function setCachedDeviceScore(deviceId, score) {
     const key = deviceKey(deviceId);
-    await set(key, score, DEVICE_TTL_SEC);
+    await set(key, score, _deviceTtlSec);
 }
 
 /**
@@ -150,5 +156,7 @@ module.exports = {
     bustFraudScore,
     getClient,
     getStatus,
+    getTTLs,
+    setTTLs,
     get cacheAvailable() { return cacheAvailable; }
 };

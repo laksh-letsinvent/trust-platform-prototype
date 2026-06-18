@@ -7,16 +7,30 @@ const abuseIpdb   = require('./abuseIpdbAdapter');
 const hibp        = require('./hibpAdapter');
 const greynoise   = require('./greynoiseAdapter');
 
+const _disabled = new Set(); // adapter names that are runtime-disabled
+
+function enableAdapter(name)  { _disabled.delete(name); }
+function disableAdapter(name) { _disabled.add(name); }
+function getAdapterStates() {
+    return {
+        ip_enrichment: { configured: true,                           enabled: !_disabled.has('ip_enrichment') },
+        abuseipdb:     { configured: !!process.env.ABUSEIPDB_API_KEY, enabled: !_disabled.has('abuseipdb') },
+        hibp:          { configured: !!process.env.HIBP_API_KEY,      enabled: !_disabled.has('hibp') },
+        greynoise:     { configured: true,                            enabled: !_disabled.has('greynoise') },
+    };
+}
+
 /**
  * @param {{ ip, email, customerId, deviceId, existingDeviceIds }} opts
  * @returns enrichment signals (never rejects)
  */
 async function enrich({ ip, email, customerId, deviceId, existingDeviceIds = [] } = {}) {
+    const skip = (name) => _disabled.has(name);
     const [ipRes, abuseRes, hibpRes, gnRes] = await Promise.allSettled([
-        ipEnrichment.enrich(ip),
-        abuseIpdb.getScore(ip),
-        hibp.checkEmail(email),
-        greynoise.check(ip),
+        skip('ip_enrichment') ? Promise.resolve(null) : ipEnrichment.enrich(ip),
+        skip('abuseipdb')     ? Promise.resolve(null) : abuseIpdb.getScore(ip),
+        skip('hibp')          ? Promise.resolve(null) : hibp.checkEmail(email),
+        skip('greynoise')     ? Promise.resolve(null) : greynoise.check(ip),
     ]);
 
     const ipData    = ipRes.status    === 'fulfilled' ? ipRes.value    : null;
@@ -70,4 +84,4 @@ function isAnyAdapterConfigured() {
     // ip-api.com and GreyNoise community always available (no key needed)
 }
 
-module.exports = { enrich, isAnyAdapterConfigured };
+module.exports = { enrich, isAnyAdapterConfigured, enableAdapter, disableAdapter, getAdapterStates };
