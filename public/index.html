@@ -189,8 +189,11 @@
     .arch-legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-faint); }
 
     /* ── responsive ─────────────────────────────────────────────── */
+    @media (max-width: 960px) {
+      .sim { grid-template-columns: 1fr; }
+    }
     @media (max-width: 840px) {
-      .sim, .master-detail, .lab-grid, .mon { grid-template-columns: 1fr; }
+      .master-detail, .lab-grid, .mon { grid-template-columns: 1fr; }
       .charts-row { grid-template-columns: 1fr; }
       .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
     }
@@ -1317,7 +1320,7 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
           <div><div class="pt">Control Panel</div><div class="pd">Policy rules, confidence model, and system controls.</div></div>
           <button class="btn sm ghost" onclick="loadControl()">Refresh</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start">
+        <div style="display:grid;grid-template-columns:380px 1fr;gap:14px;align-items:start">
 
           <!-- left: policy rules -->
           <div class="box">
@@ -1330,8 +1333,8 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
             <div id="rules-list" style="padding:6px 0"></div>
           </div>
 
-          <!-- right: settings stack -->
-          <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- right: settings grid (2-col auto-fill) -->
+          <div class="ctrl-grid" style="align-items:start">
 
             <!-- confidence thresholds -->
             <div class="box pad">

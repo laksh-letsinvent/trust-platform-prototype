@@ -341,7 +341,7 @@ body {
 /* ----------------------------------------------------------------------------
    SPLIT LAYOUTS — used by Simulator (form+trace) and Review (list+detail)
    ---------------------------------------------------------------------------- */
-.sim { display: grid; grid-template-columns: 352px 1fr; gap: 20px; align-items: start; }
+.sim { display: grid; grid-template-columns: 460px 1fr; gap: 20px; align-items: start; }
 .builder { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 14px; }
 .builder .full { grid-column: span 2; }
 .mon { display: grid; grid-template-columns: 1fr 232px; gap: 20px; align-items: start; }
