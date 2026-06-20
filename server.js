@@ -976,23 +976,24 @@ app.get('/experiments/results', async (req, res) => {
 
 // ─── Daemon control (dev only) ────────────────────────────────────────────────
 
-async function getDaemonStatus() {
-    return new Promise((resolve) => {
-        try {
-            const pm2 = require('pm2');
-            pm2.connect(true, (err) => {
-                if (err) return resolve({ running: false, reason: 'PM2 connect failed' });
-                pm2.describe('trust-traffic', (err2, desc) => {
-                    pm2.disconnect();
-                    if (err2 || !desc || !desc.length) return resolve({ running: false });
-                    const proc = desc[0];
-                    const running = proc.pm2_env && proc.pm2_env.status === 'online';
-                    const uptime = running && proc.pm2_env.pm_uptime ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : null;
-                    resolve({ running, uptime_sec: uptime });
-                });
-            });
-        } catch { resolve({ running: false, reason: 'PM2 not available — start daemon manually: node scripts/traffic-daemon.js' }); }
+const { exec } = require('child_process');
+
+function pm2Exec(cmd) {
+    return new Promise((resolve, reject) => {
+        exec(cmd, (err, stdout, stderr) => err ? reject(new Error(stderr || err.message)) : resolve(stdout));
     });
+}
+
+async function getDaemonStatus() {
+    try {
+        const stdout = await pm2Exec('pm2 jlist');
+        const list = JSON.parse(stdout);
+        const proc = list.find(p => p.name === 'trust-traffic');
+        if (!proc) return { running: false };
+        const running = proc.pm2_env && proc.pm2_env.status === 'online';
+        const uptime = running && proc.pm2_env.pm_uptime ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : null;
+        return { running, uptime_sec: uptime };
+    } catch { return { running: false }; }
 }
 
 app.get('/dev/daemon/status', async (req, res) => {
@@ -1001,30 +1002,21 @@ app.get('/dev/daemon/status', async (req, res) => {
 
 app.post('/dev/daemon/start', async (req, res) => {
     try {
-        const pm2 = require('pm2');
-        pm2.connect(true, (err) => {
-            if (err) return res.json({ ok: false, reason: 'PM2 connect failed' });
-            pm2.start({ name: 'trust-traffic', script: 'scripts/traffic-daemon.js', env: { PORT: String(PORT) } }, (err2) => {
-                pm2.disconnect();
-                if (err2) return res.json({ ok: false, reason: err2.message });
-                res.json({ ok: true });
-            });
-        });
-    } catch { res.json({ ok: false, reason: 'PM2 not available — start daemon manually: node scripts/traffic-daemon.js' }); }
+        const script = path.join(__dirname, 'scripts', 'traffic-daemon.js');
+        await pm2Exec(`pm2 start ${script} --name trust-traffic --env PORT=${PORT}`);
+        res.json({ ok: true });
+    } catch (err) {
+        res.json({ ok: false, reason: err.message });
+    }
 });
 
 app.post('/dev/daemon/stop', async (req, res) => {
     try {
-        const pm2 = require('pm2');
-        pm2.connect(true, (err) => {
-            if (err) return res.json({ ok: false, reason: 'PM2 connect failed' });
-            pm2.stop('trust-traffic', (err2) => {
-                pm2.disconnect();
-                if (err2) return res.json({ ok: false, reason: err2.message });
-                res.json({ ok: true });
-            });
-        });
-    } catch { res.json({ ok: false, reason: 'PM2 not available' }); }
+        await pm2Exec('pm2 stop trust-traffic');
+        res.json({ ok: true });
+    } catch (err) {
+        res.json({ ok: false, reason: err.message });
+    }
 });
 
 // ─── Adapter status ───────────────────────────────────────────────────────────
