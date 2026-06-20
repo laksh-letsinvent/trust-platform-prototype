@@ -976,7 +976,17 @@ app.get('/experiments/results', async (req, res) => {
 
 // ─── Daemon control (dev only) ────────────────────────────────────────────────
 
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
+const os = require('os');
+
+const DAEMON_PID_FILE = path.join(os.tmpdir(), 'trust-traffic.pid');
+const DAEMON_SCRIPT   = path.join(__dirname, 'scripts', 'traffic-daemon.js');
+
+function pm2Available() {
+    return new Promise(resolve => {
+        exec('pm2 jlist', (err) => resolve(!err));
+    });
+}
 
 function pm2Exec(cmd) {
     return new Promise((resolve, reject) => {
@@ -984,16 +994,27 @@ function pm2Exec(cmd) {
     });
 }
 
+function pidAlive(pid) {
+    try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
 async function getDaemonStatus() {
+    if (await pm2Available()) {
+        try {
+            const list = JSON.parse(await pm2Exec('pm2 jlist'));
+            const proc = list.find(p => p.name === 'trust-traffic');
+            if (!proc) return { running: false };
+            const running = proc.pm2_env && proc.pm2_env.status === 'online';
+            const uptime = running && proc.pm2_env.pm_uptime ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : null;
+            return { running, uptime_sec: uptime };
+        } catch { return { running: false }; }
+    }
+    // Fallback: PID file
     try {
-        const stdout = await pm2Exec('pm2 jlist');
-        const list = JSON.parse(stdout);
-        const proc = list.find(p => p.name === 'trust-traffic');
-        if (!proc) return { running: false };
-        const running = proc.pm2_env && proc.pm2_env.status === 'online';
-        const uptime = running && proc.pm2_env.pm_uptime ? Math.floor((Date.now() - proc.pm2_env.pm_uptime) / 1000) : null;
-        return { running, uptime_sec: uptime };
-    } catch { return { running: false }; }
+        const pid = parseInt(require('fs').readFileSync(DAEMON_PID_FILE, 'utf8').trim(), 10);
+        if (pid && pidAlive(pid)) return { running: true, pid };
+    } catch {}
+    return { running: false };
 }
 
 app.get('/dev/daemon/status', async (req, res) => {
@@ -1001,21 +1022,51 @@ app.get('/dev/daemon/status', async (req, res) => {
 });
 
 app.post('/dev/daemon/start', async (req, res) => {
+    const status = await getDaemonStatus();
+    if (status.running) return res.json({ ok: true, already: true });
+
+    if (await pm2Available()) {
+        try {
+            await pm2Exec(`pm2 start ${DAEMON_SCRIPT} --name trust-traffic`);
+            return res.json({ ok: true });
+        } catch (err) {
+            return res.json({ ok: false, reason: err.message });
+        }
+    }
+
+    // Fallback: detached child process
     try {
-        const script = path.join(__dirname, 'scripts', 'traffic-daemon.js');
-        await pm2Exec(`pm2 start ${script} --name trust-traffic --env PORT=${PORT}`);
-        res.json({ ok: true });
+        const child = spawn(process.execPath, [DAEMON_SCRIPT], {
+            detached: true,
+            stdio: 'ignore',
+            env: { ...process.env, PORT: String(PORT) },
+        });
+        child.unref();
+        require('fs').writeFileSync(DAEMON_PID_FILE, String(child.pid), 'utf8');
+        return res.json({ ok: true, pid: child.pid });
     } catch (err) {
-        res.json({ ok: false, reason: err.message });
+        return res.json({ ok: false, reason: err.message });
     }
 });
 
 app.post('/dev/daemon/stop', async (req, res) => {
+    if (await pm2Available()) {
+        try {
+            await pm2Exec('pm2 stop trust-traffic');
+            return res.json({ ok: true });
+        } catch (err) {
+            return res.json({ ok: false, reason: err.message });
+        }
+    }
+
+    // Fallback: kill by PID file
     try {
-        await pm2Exec('pm2 stop trust-traffic');
-        res.json({ ok: true });
+        const pid = parseInt(require('fs').readFileSync(DAEMON_PID_FILE, 'utf8').trim(), 10);
+        if (pid && pidAlive(pid)) process.kill(pid, 'SIGTERM');
+        require('fs').unlinkSync(DAEMON_PID_FILE);
+        return res.json({ ok: true });
     } catch (err) {
-        res.json({ ok: false, reason: err.message });
+        return res.json({ ok: false, reason: err.message });
     }
 });
 
