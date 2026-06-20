@@ -216,7 +216,12 @@
     <div class="spacer"></div>
     <div class="sys" id="sys-status"><span class="blink"></span><span id="sys-txt">connecting…</span></div>
     <button class="themebtn" onclick="toggleTheme()" title="Toggle theme">◐</button>
-    <div class="avatar">L</div>
+    <div id="user-chip" style="display:none;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)">
+      <span id="user-chip-name" style="font-weight:500;color:var(--ink)"></span>
+      <span id="user-chip-al" style="font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:4px;background:var(--bg-2);border:1px solid var(--border)"></span>
+      <button onclick="doLogout()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-family:var(--font-sans)">Sign out</button>
+    </div>
+    <div class="avatar" id="nav-avatar">?</div>
   </header>
 
   <!-- ══ GROUPED NAV ═════════════════════════════════════════════ -->
@@ -2923,8 +2928,61 @@ async function rollbackPolicyVersion(policyName,id,num){
   }catch(e){ toast('Rollback: '+e.message,'error'); }
 }
 
+// ── AUTH ──────────────────────────────────────────────────────────
+async function checkSession(){
+  try {
+    const s = await api('/auth/session');
+    if (!s.authenticated) { location.href='/login'; return false; }
+    renderUserChip(s);
+    if (s.achieved_al === 'AL1') lockAL2Tabs();
+    return true;
+  } catch {
+    location.href = '/login';
+    return false;
+  }
+}
+
+function renderUserChip(s){
+  const chip = document.getElementById('user-chip');
+  const name = document.getElementById('user-chip-name');
+  const al   = document.getElementById('user-chip-al');
+  const av   = document.getElementById('nav-avatar');
+  if (name) name.textContent = s.customer_id || s.email;
+  if (al)   al.textContent   = s.achieved_al;
+  if (av)   av.textContent   = (s.customer_id || s.email || '?')[0].toUpperCase();
+  if (chip) chip.style.display = 'flex';
+}
+
+function lockAL2Tabs(){
+  const lockHtml = (tab) => `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:320px;gap:16px;color:var(--ink-soft)">
+      <div style="font-size:32px">🔒</div>
+      <div style="font-size:16px;font-weight:600;color:var(--ink)">Passkey required</div>
+      <div style="font-size:13px;text-align:center;max-width:300px;line-height:1.6">
+        ${tab} requires AL2. Sign in again with your passkey to unlock.
+      </div>
+      <button class="btn primary" onclick="location.href='/login?step=login&return=/'">Sign in with passkey</button>
+    </div>`;
+  const surfaces = {
+    control: 'Control Panel',
+    policylab: 'Policy Lab',
+  };
+  const orig = {};
+  for (const [id, label] of Object.entries(surfaces)) {
+    const el = document.getElementById('surface-' + id);
+    if (el) { orig[id] = el.innerHTML; el.innerHTML = lockHtml(label); }
+  }
+}
+
+async function doLogout(){
+  await fetch('/auth/logout', { method: 'POST' }).catch(() => {});
+  location.href = '/login';
+}
+
 // ── BOOT ─────────────────────────────────────────────────────────
-(function boot(){
+(async function boot(){
+  const ok = await checkSession();
+  if (!ok) return;
   startStatusPoll();
   loadHome(); _inited.add('home');
 })();

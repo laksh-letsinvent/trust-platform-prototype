@@ -31,7 +31,7 @@ function generateRef(prefix, customerId, action) {
  * Runs the full trust decision pipeline.
  * Request: customer_id, action, device_id, current_auth_level (optional).
  */
-async function getDecision({ customer_id, action, device_id, current_auth_level, ip }, analyticsExtra = {}) {
+async function getDecision({ customer_id, action, device_id, current_auth_level, ip, email: emailOverride }, analyticsExtra = {}) {
     const trace = {
         input: { customer_id, action, device_id, current_auth_level: current_auth_level ?? null },
         data_lookup: {},
@@ -81,7 +81,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
     // Enrich with external intelligence — always best-effort, never blocks the decision
     const enrichment = await enrichmentOrchestrator.enrich({
         ip: ip || null,
-        email: user?.email || null,
+        email: user?.email || emailOverride || null,
         customerId: customer_id,
         deviceId: device_id,
         existingDeviceIds: user?.known_device_ids || [],

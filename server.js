@@ -17,6 +17,9 @@ const velocityEngine = require('./velocityEngine');
 const sessionStore = require('./sessionStore');
 const apiKey = require('./middleware/apiKey');
 const policyValidator = require('./policyValidator');
+const cookieParser = require('cookie-parser');
+const { requireSession, requireAL } = require('./middleware/session');
+const authRouter = require('./auth/router');
 
 const { initAmplitude, trackOutcome } = require('./amplitude');
 const simulationEngine = require('./simulationEngine');
@@ -45,6 +48,11 @@ const ATTACK_TRIGGERS_ENABLED =
 
 app.set('trust proxy', 1); // trust Caddy/nginx forwarded IP
 app.use(express.json());
+app.use(cookieParser());
+
+// ─── Auth routes and public assets (no session required) ─────────────────────
+app.use('/auth', authRouter);
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Utility ───────────────────────────────────────────────────────────────
@@ -82,6 +90,31 @@ async function maybeSyncToSheets(policy, req) {
         return { synced: false, sheetsWriteError: err.message };
     }
 }
+
+// ─── Session guard — all API routes below require authentication ──────────────
+app.use((req, res, next) => {
+    // Let OPTIONS through for CORS preflight
+    if (req.method === 'OPTIONS') return next();
+    requireSession(req, res, next);
+});
+
+// ─── AL2 guard on mutation endpoints ─────────────────────────────────────────
+const al2Routes = [
+    ['/policies/', ['PATCH', 'POST']],
+    ['/cache/config', ['PATCH']],
+    ['/adapters/config', ['PATCH']],
+    ['/trust/ats/', ['PATCH']],
+    ['/trust/traffic/', ['POST']],
+    ['/dev/attack/', ['POST']],
+];
+app.use((req, res, next) => {
+    for (const [prefix, methods] of al2Routes) {
+        if (req.path.startsWith(prefix) && methods.includes(req.method)) {
+            return requireAL('AL2')(req, res, next);
+        }
+    }
+    next();
+});
 
 // ─── Data endpoints ─────────────────────────────────────────────────────────
 
