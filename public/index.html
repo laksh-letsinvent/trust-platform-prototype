@@ -2929,10 +2929,13 @@ async function rollbackPolicyVersion(policyName,id,num){
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────
+let _sessionEmail = null;
+
 async function checkSession(){
   try {
     const s = await api('/auth/session');
     if (!s.authenticated) { location.href='/login'; return false; }
+    _sessionEmail = s.email || null;
     renderUserChip(s);
     if (s.achieved_al === 'AL1') lockAL2Tabs();
     return true;
@@ -2955,22 +2958,75 @@ function renderUserChip(s){
 
 function lockAL2Tabs(){
   const lockHtml = (tab) => `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:320px;gap:16px;color:var(--ink-soft)">
+    <div id="al2-lock-${tab}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:320px;gap:16px;color:var(--ink-soft)">
       <div style="font-size:32px">🔒</div>
       <div style="font-size:16px;font-weight:600;color:var(--ink)">Passkey required</div>
       <div style="font-size:13px;text-align:center;max-width:300px;line-height:1.6">
-        ${tab} requires AL2. Sign in again with your passkey to unlock.
+        ${tab} requires AL2. Verify with your passkey to unlock — no need to sign out.
       </div>
-      <button class="btn primary" onclick="location.href='/login?step=login&return=/'">Sign in with passkey</button>
+      <button class="btn primary" id="al2-uplift-btn-${tab}" onclick="upgradeToAL2('${tab}')">Verify with passkey</button>
+      <div id="al2-uplift-msg-${tab}" style="font-size:13px;color:var(--err,#c0392b);min-height:18px"></div>
     </div>`;
-  const surfaces = {
-    control: 'Control Panel',
-    policylab: 'Policy Lab',
-  };
-  const orig = {};
+  const surfaces = { control: 'Control Panel', policylab: 'Policy Lab' };
   for (const [id, label] of Object.entries(surfaces)) {
     const el = document.getElementById('surface-' + id);
-    if (el) { orig[id] = el.innerHTML; el.innerHTML = lockHtml(label); }
+    if (el) el.innerHTML = lockHtml(label);
+  }
+}
+
+async function upgradeToAL2(tabId) {
+  const email = _sessionEmail;
+  if (!email) { location.href = '/login'; return; }
+
+  const btn = document.getElementById('al2-uplift-btn-' + tabId);
+  const msg = document.getElementById('al2-uplift-msg-' + tabId);
+  btn.disabled = true;
+  btn.textContent = 'Waiting for passkey…';
+  msg.textContent = '';
+
+  try {
+    const opts = await fetch('/auth/webauthn/login/start', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(r => { if (!r.ok) throw new Error('Could not start passkey verification'); return r.json(); });
+
+    opts.challenge = Uint8Array.from(atob(opts.challenge.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+    if (opts.allowCredentials) {
+      opts.allowCredentials = opts.allowCredentials.map(c => ({
+        ...c, id: Uint8Array.from(atob(c.id.replace(/-/g,'+').replace(/_/g,'/')), x => x.charCodeAt(0))
+      }));
+    }
+
+    const cred = await navigator.credentials.get({ publicKey: opts });
+
+    function b64url(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+    const payload = {
+      id: cred.id, rawId: b64url(cred.rawId), type: cred.type,
+      response: {
+        authenticatorData: b64url(cred.response.authenticatorData),
+        clientDataJSON:    b64url(cred.response.clientDataJSON),
+        signature:         b64url(cred.response.signature),
+        userHandle:        cred.response.userHandle ? b64url(cred.response.userHandle) : null,
+      },
+    };
+
+    const result = await fetch('/auth/webauthn/login/finish', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, response: payload }),
+    }).then(r => r.json());
+
+    if (result.ok) {
+      // Session re-issued with AL2 — reload page so tabs unlock
+      location.reload();
+    } else {
+      msg.textContent = result.reason || result.error || 'Verification failed.';
+      btn.disabled = false;
+      btn.textContent = 'Verify with passkey';
+    }
+  } catch (err) {
+    msg.textContent = err.name === 'NotAllowedError' ? 'Passkey verification was cancelled.' : (err.message || 'Verification failed.');
+    btn.disabled = false;
+    btn.textContent = 'Verify with passkey';
   }
 }
 
