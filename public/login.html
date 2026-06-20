@@ -479,7 +479,10 @@
         }).then(r => r.json());
 
         if (result.ok) {
-          location.href = '/';
+          // If no PIN set yet, offer setup before entering the app
+          const info = await fetch(`/auth/user-info?email=${encodeURIComponent(email)}`).then(r => r.json()).catch(() => ({}));
+          if (!info.has_passcode) { showStep('pin'); }
+          else { location.href = '/'; }
         } else if (result.decision === 'STEP_UP') {
           setMsg('passkey-msg', `Additional verification required: ${(result.step_up_type || '').replace(/_/g, ' ')}`);
         } else if (result.decision === 'MANUAL_REVIEW') {
