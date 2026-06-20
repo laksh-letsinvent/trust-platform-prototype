@@ -67,13 +67,12 @@ const SCHEMAS = {
         { key: 'name', col: 'name' },
         { key: 'tier', col: 'tier' },
         { key: 'required_al', col: 'required_al' },
-        { key: 'required_confidence', col: 'required_confidence' }
+        { key: 'risk_ceiling', col: 'risk_ceiling' }
     ],
     Authenticators: [
         { key: 'id', col: 'id' },
         { key: 'name', col: 'name' },
         { key: 'assurance_level', col: 'assurance_level' },
-        { key: 'confidence_level', col: 'confidence_level' },
         { key: 'description', col: 'description' }
     ]
 };
@@ -108,7 +107,7 @@ async function getWriteClient() {
 
 /**
  * Flatten a nested JSON object to [key, value, updated_at] rows.
- * E.g. { effectiveConfidence: { deviceWeight: 40 } } → [["effectiveConfidence.deviceWeight", "40", "..."]]
+ * E.g. { compositeRisk: { weights: { customer: 40 } } } → [["compositeRisk.weights.customer", "40", "..."]]
  */
 function flattenToRows(obj, prefix = '') {
     const rows = [];

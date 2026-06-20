@@ -10,7 +10,7 @@ const cache = require('./cache');
 const db = require('./db');
 const store = require('./data/store');
 const analytics = require('./analytics');
-const confidenceEngine = require('./confidenceEngine');
+const riskEngine = require('./riskEngine');
 const policyEngine = require('./policyEngine');
 const idvRouting = require('./idvRouting');
 const velocityEngine = require('./velocityEngine');
@@ -157,32 +157,24 @@ app.get('/decisions', async (req, res) => {
     }
 });
 
-// ─── Policy: confidence ──────────────────────────────────────────────────────
+// ─── Policy: risk ────────────────────────────────────────────────────────────
 
-app.get('/policies/confidence', (req, res) => {
-    try { res.json(readPolicyFile('confidence.json')); }
+app.get('/policies/risk', (req, res) => {
+    try { res.json(readPolicyFile('risk.json')); }
     catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.patch('/policies/confidence', apiKey, async (req, res) => {
+app.patch('/policies/risk', apiKey, async (req, res) => {
     try {
-        const current = readPolicyFile('confidence.json');
+        const current = readPolicyFile('risk.json');
         const merged = deepMerge(current, req.body);
 
-        // Validate weights sum to 100
-        const formula = merged.effectiveConfidence || {};
-        if (formula.deviceWeight != null && formula.fraudWeight != null) {
-            if (Math.abs(formula.deviceWeight + formula.fraudWeight - 100) > 0.01) {
-                return res.status(400).json({ error: 'deviceWeight + fraudWeight must equal 100' });
-            }
-        }
-
-        const { valid, errors } = policyValidator.validate('confidence', merged);
+        const { valid, errors } = policyValidator.validate('risk', merged);
         if (!valid) return res.status(400).json({ error: 'Policy validation failed', validation_errors: errors });
 
-        writePolicyFile('confidence.json', merged);
-        confidenceEngine.clearCache();
-        policyVersioning.saveVersion('confidence', merged, { author: req.apiKeyId || 'anonymous' }).catch(() => {});
+        writePolicyFile('risk.json', merged);
+        riskEngine.clearCache();
+        policyVersioning.saveVersion('risk', merged, { author: req.apiKeyId || 'anonymous' }).catch(() => {});
 
         const sheetsResult = await maybeSyncToSheets(merged, req);
         res.json({ ok: true, policy: merged, ...(sheetsResult || {}) });
@@ -727,7 +719,7 @@ app.post('/dev/attack/:scenario', apiKey, async (req, res) => {
 
 // ─── Policy versioning ───────────────────────────────────────────────────────
 
-const VALID_POLICY_NAMES = ['decisions', 'confidence', 'idvRouting'];
+const VALID_POLICY_NAMES = ['decisions', 'risk', 'idvRouting'];
 
 app.get('/policies/:name/history', async (req, res) => {
     if (!VALID_POLICY_NAMES.includes(req.params.name)) return res.status(400).json({ error: 'Unknown policy' });
@@ -1074,7 +1066,7 @@ async function start() {
     initAmplitude();
 
     // Validate all policy files on startup — warn but don't crash
-    const POLICY_MAP = { decisions: 'decisions.json', confidence: 'confidence.json', idvRouting: 'idvRouting.json' };
+    const POLICY_MAP = { decisions: 'decisions.json', risk: 'risk.json', idvRouting: 'idvRouting.json' };
     let allValid = true;
     for (const [name, file] of Object.entries(POLICY_MAP)) {
         try {

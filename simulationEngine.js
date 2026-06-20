@@ -19,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const { computeContext } = require('./confidenceEngine');
+const { computeRiskContext } = require('./riskEngine');
 const policyEngine = require('./policyEngine');
 const store = require('./data/store');
 const db = require('./db');
@@ -128,15 +128,16 @@ async function simulate(proposedConfig, opts = {}) {
         const actionInfo = actionsById.get(row.action) || null;
         const authenticatorInfo = r.current_auth_level ? (authsById.get(r.current_auth_level) || null) : null;
 
-        const context = computeContext({
-            fraudScore: r.fraudScore,
-            deviceScore: r.deviceScore,
-            geography: r.geography,
+        const context = computeRiskContext({
+            fraudScore:      r.fraudScore,
+            deviceScore:     r.deviceScore,
+            ambientTrustScore: r.ambientTrustScore ?? 50,  // default for old snapshots
+            geography:       r.geography,
             actionInfo,
             authenticatorInfo,
             currentAuthLevel: r.current_auth_level,
-            velocity: r.velocity,
-            enrichment: r.enrichment || null,
+            velocity:        r.velocity,
+            enrichment:      r.enrichment || null,
         });
 
         const before = policyEngine.evaluateWith(baselineConfig, context);
@@ -166,6 +167,7 @@ async function simulate(proposedConfig, opts = {}) {
                     action: row.action,
                     actionTier: context.actionTier,
                     riskLevel: context.riskLevel,
+                    compositeRisk: context.compositeRisk,
                     fraudScore: context.fraudScore,
                     deviceScore: context.deviceScore,
                     before: { decision: beforeDecision, step_up_type: before.step_up_type || null, ruleId: before.ruleId },

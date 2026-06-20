@@ -1,6 +1,6 @@
 // decisionEngine.js
 
-const { computeContext } = require('./confidenceEngine');
+const { computeRiskContext } = require('./riskEngine');
 const { evaluate, evaluateWith } = require('./policyEngine');
 const idvRouting = require('./idvRouting');
 const cache = require('./cache');
@@ -37,7 +37,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         data_lookup: {},
         signals: {},
         context: null,
-        confidence_calculation: null,
+        risk_calculation: null,
         policy: null,
         decision: null,
         step_up_type: null,
@@ -58,11 +58,11 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         ? { device_id: device.device_id, device_score: device.device_score }
         : { device_id, note: 'Device not in store; using default device score.' };
     trace.data_lookup.action = actionInfo
-        ? { id: actionInfo.id, name: actionInfo.name, tier: actionInfo.tier, required_confidence: actionInfo.required_confidence }
+        ? { id: actionInfo.id, name: actionInfo.name, tier: actionInfo.tier, risk_ceiling: actionInfo.risk_ceiling }
         : { id: action, note: 'Action not in store.' };
     if (current_auth_level != null) {
         trace.data_lookup.current_auth_level = authenticatorInfo
-            ? { id: authenticatorInfo.id, confidence_level: authenticatorInfo.confidence_level }
+            ? { id: authenticatorInfo.id, assurance_level: authenticatorInfo.assurance_level }
             : { requested: current_auth_level, note: 'Authenticator not in store.' };
     }
 
@@ -86,15 +86,6 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         deviceId: device_id,
         existingDeviceIds: user?.known_device_ids || [],
     }).catch(() => ({}));
-
-    // Apply enrichment adjustments additively — never set scores to a fixed value
-    if (enrichment.is_tor)            fraudScore = Math.min(100, fraudScore + 40);
-    if (enrichment.is_greynoise_bot)  fraudScore = Math.min(100, fraudScore + 40);
-    if (enrichment.is_proxy || enrichment.is_vpn) fraudScore = Math.min(100, fraudScore + 15);
-    if (enrichment.email_breached && enrichment.breach_count > 2) fraudScore = Math.min(100, fraudScore + 20);
-    if (enrichment.ip_abuse_score != null && enrichment.ip_abuse_score > 80)  deviceScore = Math.max(0, deviceScore - 40);
-    else if (enrichment.ip_abuse_score != null && enrichment.ip_abuse_score > 50) deviceScore = Math.max(0, deviceScore - 20);
-    if (enrichment.is_new_device && user != null) deviceScore = Math.max(0, deviceScore - 30);
 
     // Use IP-derived geography when available, fall back to user record
     const geography = enrichment.geography || (user && user.geography ? user.geography : null);
@@ -120,17 +111,18 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         fraudScore,
         deviceScore,
         geography,
+        ambientTrustScore,
         current_auth_level: current_auth_level ?? null,
         velocity,
         velocity_tracking: velocityEngine.isAvailable() ? 'active' : 'unavailable (Redis not connected)',
         enrichment: Object.keys(enrichment).length ? enrichment : null,
-        ambientTrustScore,
     };
     trace.enrichment = Object.keys(enrichment).length ? enrichment : null;
 
-    const context = computeContext({
+    const context = computeRiskContext({
         fraudScore,
         deviceScore,
+        ambientTrustScore,
         geography,
         actionInfo,
         authenticatorInfo,
@@ -138,28 +130,25 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         velocity,
         enrichment,
     });
-    // Attach ATS to context so policyEngine can match ambient_trust_gte/lte conditions
-    context.ambientTrustScore = ambientTrustScore;
 
     trace.context = {
-        fraudScore: context.fraudScore,
-        deviceScore: context.deviceScore,
-        geography: context.geography,
-        riskLevel: context.riskLevel,
-        actionTier: context.actionTier,
-        requiredConfidence: context.requiredConfidence,
-        requiredAL: context.requiredAL,
-        currentAL: context.currentAL,
-        currentALIndex: context.currentALIndex,
-        alMeetsRequired: context.alMeetsRequired,
-        authenticatorConfidence: context.authenticatorConfidence,
-        effectiveConfidence: context.effectiveConfidence,
-        confidenceMeetsAction: context.confidenceMeetsAction,
-        currentAuthLevel: context.currentAuthLevel,
-        velocity: context.velocity,
-        ambientTrustScore,
+        fraudScore:          context.fraudScore,
+        deviceScore:         context.deviceScore,
+        ambientTrustScore:   context.ambientTrustScore,
+        geography:           context.geography,
+        compositeRisk:       context.compositeRisk,
+        components:          context.components,
+        riskLevel:           context.riskLevel,
+        actionTier:          context.actionTier,
+        requiredAL:          context.requiredAL,
+        currentAL:           context.currentAL,
+        currentALIndex:      context.currentALIndex,
+        alMeetsRequired:     context.alMeetsRequired,
+        risk_ceiling_breached: context.risk_ceiling_breached,
+        currentAuthLevel:    context.currentAuthLevel,
+        velocity:            context.velocity,
     };
-    trace.confidence_calculation = context.confidenceTrace || null;
+    trace.risk_calculation = context.riskTrace || null;
 
     // A/B experiment: assign variant and evaluate with treatment/control config
     const experiment = abExperiment.getActiveExperiment();
@@ -201,7 +190,6 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         const resolved = idvRouting.resolveIdvVendor({ geography: context.geography, requestId: `${customer_id}:${action}:${device_id}` });
         idvVendor = resolved;
         trace.idv_routing = resolved;
-        // Generate a stable IDV session ID tied to this reference
         idv_session_id = `ses_${reference_id}`;
         trace.idv_session_id = idv_session_id;
     }
@@ -210,7 +198,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
     const outputDecision = policyResult.decision === 'ALLOW' ? 'FRICTIONLESS' : policyResult.decision;
     trace.decision = outputDecision;
 
-    // Record for analytics (unless caller suppresses for re-evaluation call sites)
+    // Record for analytics
     if (!analyticsExtra.skipAnalytics) {
         analytics.record({
             customer_id,
@@ -221,7 +209,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
             step_up_type: policyResult.step_up_type || null,
             ruleId: policyResult.ruleId || null,
             reference_id,
-            outcome: null,                      // null = primary decision record
+            outcome: null,
             original_reference_id: analyticsExtra.original_reference_id || null,
             caller_key_id: analyticsExtra.callerKeyId || null,
             experiment_id: experimentId || null,
@@ -232,6 +220,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
                 current_auth_level: current_auth_level ?? null,
                 fraudScore,
                 deviceScore,
+                ambientTrustScore,
                 geography: context.geography,
                 velocity: context.velocity,
                 enrichment: Object.keys(enrichment).length ? enrichment : null,
@@ -266,7 +255,7 @@ async function getDecision({ customer_id, action, device_id, current_auth_level,
         geography: context.geography,
         fraudScore,
         deviceScore,
-        effectiveConfidence: context.effectiveConfidence,
+        compositeRisk: context.compositeRisk,
         velocity: context.velocity || null,
     });
 

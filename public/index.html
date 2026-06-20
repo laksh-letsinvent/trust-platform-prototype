@@ -454,11 +454,11 @@
               <h2 id="al-tiers" class="atlas-h2">Action tiers</h2>
               <div class="box" style="margin-bottom:24px">
                 <div style="display:grid;grid-template-columns:60px 1fr 60px 80px;gap:8px 14px;align-items:center;font-size:13px;padding:14px 18px">
-                  <div class="kicker">Tier</div><div class="kicker">Examples</div><div class="kicker">Min AL</div><div class="kicker">Min conf</div>
-                  <span class="minichip">Tier1</span><span class="soft">login, view balance</span><span class="mono faint">AL1</span><span class="faint mono">30–45</span>
-                  <span class="minichip">Tier2</span><span class="soft">bill pay, P2P transfer</span><span class="mono faint">AL2</span><span class="faint mono">55–65</span>
-                  <span class="minichip">Tier3</span><span class="soft">wire &gt;£10K, change password</span><span class="mono faint">AL3</span><span class="faint mono">70–75</span>
-                  <span class="minichip">Tier4</span><span class="soft">account recovery, add payee</span><span class="mono faint">AL4</span><span class="faint mono">85–90</span>
+                  <div class="kicker">Tier</div><div class="kicker">Examples</div><div class="kicker">Min AL</div><div class="kicker">Risk ceiling</div>
+                  <span class="minichip">Tier1</span><span class="soft">login, view balance</span><span class="mono faint">AL1</span><span class="faint mono">85</span>
+                  <span class="minichip">Tier2</span><span class="soft">bill pay, P2P transfer</span><span class="mono faint">AL2</span><span class="faint mono">70</span>
+                  <span class="minichip">Tier3</span><span class="soft">wire &gt;£10K, change password</span><span class="mono faint">AL3</span><span class="faint mono">55</span>
+                  <span class="minichip">Tier4</span><span class="soft">account recovery, add payee</span><span class="mono faint">AL4</span><span class="faint mono">40</span>
                 </div>
               </div>
 
@@ -563,27 +563,30 @@
               </div>
             </article>
 
-            <!-- Article: confidence -->
+            <!-- Article: composite risk -->
             <article class="atlas-article" id="atlas-article-confidence">
               <div class="atlas-section-kicker">Signals</div>
-              <h1 class="atlas-title">Confidence score</h1>
-              <p class="atlas-lead">Effective confidence blends device trust and fraud into a single 0–100 number. The action's required confidence sets the bar; policy decides whether to pass or step up.</p>
+              <h1 class="atlas-title">Composite risk score</h1>
+              <p class="atlas-lead">Five components — customer, device, behavioural, network, velocity — are normalised to 0–100 (higher = riskier) and blended into one compositeRisk score. Weights live in policy, not code.</p>
 
               <h2 id="cs-formula" class="atlas-h2">The formula</h2>
-              <div class="rulecard" style="margin-bottom:16px"><span class="k">effectiveConfidence</span> =
-  (<span class="k">deviceScore</span> / 100 × 40)
-  + ((100 − <span class="k">fraudScore</span>) / 100 × 60)
+              <div class="rulecard" style="margin-bottom:16px"><span class="k">compositeRisk</span> = Σ(component × weight) / 100
 
-Clamped up to authenticator confidence floor once stepped up.
-Weights are editable in Control.</div>
-              <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 24px">Example: <span class="mono">deviceScore=80</span> · <span class="mono">fraudScore=20</span> → confidence <span class="mono sn-allow">80</span>. The same customer on an unknown device (<span class="mono">deviceScore=0</span>) → confidence <span class="mono sn-review">48</span> — below Tier3's 70 threshold, triggering a step-up.</p>
+  <span class="k">customerRisk</span>    = fraudScore          (weight 40)
+  <span class="k">deviceRisk</span>      = 100 − deviceScore   (weight 25)
+  <span class="k">behaviouralRisk</span> = 100 − ambientTrust  (weight 15)
+  <span class="k">networkRisk</span>     = additive sub-score  (weight 15)
+  <span class="k">velocityRisk</span>    = non-burst counts     (weight  5)
 
-              <h2 id="cs-tiers" class="atlas-h2">Required confidence per tier</h2>
+networkRisk = ip_abuse×0.6 + breach 25 + proxy 20 + new_device 20 + vpn 15 (cap 100)</div>
+              <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 24px">Result is banded: <strong class="sn-allow">LOW</strong> (0–35) · <strong class="sn-review">MEDIUM</strong> (36–64) · <strong class="sn-deny">HIGH</strong> (65–100). Weights are editable in Control.</p>
+
+              <h2 id="cs-tiers" class="atlas-h2">Risk ceiling per tier</h2>
               <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
-                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier1</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:30%;height:100%;background:var(--allow);border-radius:999px"></div></div><span class="mono faint">30</span></div>
-                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier2</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:55%;height:100%;background:var(--review);border-radius:999px"></div></div><span class="mono faint">55</span></div>
-                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier3</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:70%;height:100%;background:var(--review);border-radius:999px"></div></div><span class="mono faint">70</span></div>
-                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier4</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:90%;height:100%;background:var(--deny);border-radius:999px"></div></div><span class="mono faint">90</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier1</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:85%;height:100%;background:var(--allow);border-radius:999px"></div></div><span class="mono faint">85</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier2</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:70%;height:100%;background:var(--review);border-radius:999px"></div></div><span class="mono faint">70</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier3</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:55%;height:100%;background:var(--review);border-radius:999px"></div></div><span class="mono faint">55</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px"><span class="minichip" style="min-width:44px;text-align:center">Tier4</span><div style="flex:1;height:5px;border-radius:999px;background:var(--bg-3);overflow:hidden"><div style="width:40%;height:100%;background:var(--deny);border-radius:999px"></div></div><span class="mono faint">40</span></div>
               </div>
 
               <h2 id="cs-where" class="atlas-h2">Where this appears</h2>
@@ -601,7 +604,7 @@ Weights are editable in Control.</div>
 
               <h2 id="dt-score" class="atlas-h2">device_score</h2>
               <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 8px">0–100, higher is more trusted. Adjusted at decision time by network signals:</p>
-              <div class="rulecard" style="margin-bottom:24px">ip_abuse_score &gt; 80 → <span class="k">deviceScore</span> <span class="sn-deny">−40</span><br>ip_abuse_score &gt; 50 → <span class="k">deviceScore</span> <span class="sn-deny">−20</span><br>is_new_device &amp;&amp; user known → <span class="k">deviceScore</span> <span class="sn-deny">−30</span></div>
+              <div class="rulecard" style="margin-bottom:24px">In v4 these signals feed <span class="k">networkRisk</span> (additive sub-score, cap 100) — they no longer mutate deviceScore or fraudScore directly.<br><br>ip_abuse_score × 0.6 (max 60) · email_breached +25 · proxy +20 · new_device +20 · vpn +15</div>
 
               <h2 id="dt-fp" class="atlas-h2">Device fingerprinting</h2>
               <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 24px">FingerprintJS OSS generates a stable <span class="mono">visitorId</span> from browser/hardware signals. If the ID is new for this customer, <span class="mono">is_new_device=true</span>. Combined with a breached email or a proxy, it fires the ATO rule and forces IDV.</p>
@@ -638,7 +641,7 @@ Weights are editable in Control.</div>
                   </div>
                 </div>
               </div>
-              <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 10px">Idle accounts drift back toward <span class="mono">50</span> over time — trust has to keep being renewed. Policy reads it directly via <span class="mono">ambient_trust_gte</span> and <span class="mono">ambient_trust_lte</span>.</p>
+              <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 10px">Idle accounts drift back toward <span class="mono">50</span> over time — trust has to keep being renewed. In v4, ATS feeds the <span class="mono">behaviouralRisk</span> component of the composite score (100 − ATS, weight 15).</p>
 
               <h2 id="at-effect" class="atlas-h2">The effect in practice</h2>
               <p style="font-size:14px;line-height:1.7;color:var(--ink-soft);margin:0 0 24px">A loyal customer who's cleared step-ups for months sits at a high score and stops getting asked. A wire that would demand a selfie just goes through. The same wire from an account showing a low score after a breach gets pushed all the way to IDV — even with a normal fraud score.</p>
@@ -749,16 +752,15 @@ Weights are editable in Control.</div>
 
               <h2 id="rp-conditions" class="atlas-h2">Available conditions</h2>
               <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:24px;font-size:13px">
-                <div><span class="minichip">fraudScoreMin / fraudScoreMax</span> <span class="soft"> · numeric range</span></div>
-                <div><span class="minichip">deviceScoreMin / deviceScoreMax</span> <span class="soft"> · numeric range</span></div>
-                <div><span class="minichip">riskLevel</span> <span class="soft"> · LOW / MEDIUM / HIGH</span></div>
+                <div><span class="minichip">riskLevel</span> <span class="soft"> · LOW / MEDIUM / HIGH (composite band)</span></div>
+                <div><span class="minichip">risk_ceiling_breached</span> <span class="soft"> · boolean — compositeRisk &gt; action's ceiling</span></div>
+                <div><span class="minichip">alMeetsRequired</span> <span class="soft"> · boolean — assurance gap check</span></div>
                 <div><span class="minichip">geography</span> <span class="soft"> · country code array</span></div>
-                <div><span class="minichip">actionTier</span> <span class="soft"> · 1–4</span></div>
-                <div><span class="minichip">alMeetsRequired</span> <span class="soft"> · boolean</span></div>
-                <div><span class="minichip">confidenceMeetsAction</span> <span class="soft"> · boolean</span></div>
+                <div><span class="minichip">actionTier</span> <span class="soft"> · Tier1–Tier4</span></div>
                 <div><span class="minichip">velocity_1m_gt / 5m_gt / 15m_gt</span> <span class="soft"> · count thresholds (Redis)</span></div>
-                <div><span class="minichip">ambient_trust_gte / lte</span> <span class="soft"> · ATS thresholds</span></div>
-                <div><span class="minichip">is_tor / is_proxy / is_vpn / is_new_device</span> <span class="soft"> · enrichment flags</span></div>
+                <div><span class="minichip">is_tor / is_greynoise_bot</span> <span class="soft"> · hard gate flags</span></div>
+                <div><span class="minichip">is_proxy / is_vpn / is_new_device / email_breached</span> <span class="soft"> · enrichment flags</span></div>
+                <div><span class="minichip">ip_abuse_score_gte / ato_signal_count_gte</span> <span class="soft"> · numeric thresholds</span></div>
               </div>
 
               <h2 id="rp-where" class="atlas-h2">Where this appears</h2>
@@ -940,8 +942,8 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
                     <div class="arch-stname">Scoring</div>
                   </div>
                   <div class="arch-svcs">
-                    <span class="arch-svc int"><span class="arch-dot" style="background:var(--accent)"></span>confidenceEngine.js</span>
-                    <span style="font-size:12px;color:var(--ink-faint)">fraudScore → riskLevel · deviceScore → effectiveConfidence · AL check</span>
+                    <span class="arch-svc int"><span class="arch-dot" style="background:var(--accent)"></span>riskEngine.js</span>
+                    <span style="font-size:12px;color:var(--ink-faint)">5 components → compositeRisk → riskLevel · assurance gap → alMeetsRequired</span>
                   </div>
                 </div>
 
@@ -1336,24 +1338,17 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
           <!-- right: settings grid (2-col auto-fill) -->
           <div class="ctrl-grid" style="align-items:start">
 
-            <!-- confidence thresholds -->
-            <div class="box pad">
-              <div class="kicker" style="margin-bottom:12px">Required confidence per tier</div>
-              <div id="tier-sliders" style="display:flex;flex-direction:column;gap:12px"></div>
-              <button class="btn sm primary" style="margin-top:14px;width:100%" onclick="saveConfidence()">Save thresholds</button>
-            </div>
-
             <!-- risk bands -->
             <div class="box pad">
-              <div class="kicker" style="margin-bottom:12px">Risk band · fraud score threshold</div>
+              <div class="kicker" style="margin-bottom:12px">Risk band · composite risk threshold</div>
               <div style="display:flex;flex-direction:column;gap:12px">
                 <div>
-                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">HIGH if fraud ≥</span><span class="mono sn-deny" id="rb-high-val" style="font-size:13px">80</span></div>
-                  <input type="range" class="sig-range" id="rb-high" min="50" max="99" value="80" step="1" oninput="document.getElementById('rb-high-val').textContent=this.value;updateBandPreview()">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">HIGH if composite ≥</span><span class="mono sn-deny" id="rb-high-val" style="font-size:13px">65</span></div>
+                  <input type="range" class="sig-range" id="rb-high" min="50" max="99" value="65" step="1" oninput="document.getElementById('rb-high-val').textContent=this.value;updateBandPreview()">
                 </div>
                 <div>
-                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">MEDIUM if fraud ≥</span><span class="mono sn-review" id="rb-med-val" style="font-size:13px">26</span></div>
-                  <input type="range" class="sig-range" id="rb-med" min="1" max="79" value="26" step="1" oninput="document.getElementById('rb-med-val').textContent=this.value;updateBandPreview()">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">MEDIUM if composite ≥</span><span class="mono sn-review" id="rb-med-val" style="font-size:13px">36</span></div>
+                  <input type="range" class="sig-range" id="rb-med" min="1" max="79" value="36" step="1" oninput="document.getElementById('rb-med-val').textContent=this.value;updateBandPreview()">
                 </div>
               </div>
               <!-- band preview bar -->
@@ -1371,28 +1366,36 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
               <button class="btn sm primary" id="rb-save-btn" style="margin-top:14px;width:100%" onclick="saveRiskBands()">Save bands</button>
             </div>
 
-            <!-- confidence formula -->
+            <!-- composite risk weights -->
             <div class="box pad">
-              <div class="kicker" style="margin-bottom:4px">Confidence formula weights</div>
-              <div class="faint" style="font-size:11.5px;margin-bottom:12px">deviceWeight + fraudWeight must sum to 100</div>
+              <div class="kicker" style="margin-bottom:4px">Composite risk weights</div>
+              <div class="faint" style="font-size:11.5px;margin-bottom:12px">Five component weights — must sum to 100</div>
               <div style="display:flex;flex-direction:column;gap:12px">
                 <div>
-                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Device weight</span><span class="mono" id="fw-dev-val" style="font-size:13px">40</span></div>
-                  <input type="range" class="sig-range" id="fw-dev" min="0" max="100" value="40" step="5" oninput="syncWeights('dev',this.value)">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Customer risk (fraud score)</span><span class="mono" id="fw-cust-val" style="font-size:13px">40</span></div>
+                  <input type="range" class="sig-range" id="fw-cust" min="0" max="100" value="40" step="5" oninput="syncRiskWeights()">
                 </div>
                 <div>
-                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Fraud weight</span><span class="mono" id="fw-frau-val" style="font-size:13px">60</span></div>
-                  <input type="range" class="sig-range" id="fw-frau" min="0" max="100" value="60" step="5" oninput="syncWeights('frau',this.value)">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Device risk (100 − device score)</span><span class="mono" id="fw-dev-val" style="font-size:13px">25</span></div>
+                  <input type="range" class="sig-range" id="fw-dev" min="0" max="100" value="25" step="5" oninput="syncRiskWeights()">
                 </div>
-                <div style="font-size:12px;color:var(--ink-faint)">Formula: (device/100 × <span class="mono" id="fw-dev-f">40</span>) + ((100−fraud)/100 × <span class="mono" id="fw-frau-f">60</span>)</div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Behavioural risk (100 − ATS)</span><span class="mono" id="fw-beh-val" style="font-size:13px">15</span></div>
+                  <input type="range" class="sig-range" id="fw-beh" min="0" max="100" value="15" step="5" oninput="syncRiskWeights()">
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Network risk (IP / VPN / proxy)</span><span class="mono" id="fw-net-val" style="font-size:13px">15</span></div>
+                  <input type="range" class="sig-range" id="fw-net" min="0" max="100" value="15" step="5" oninput="syncRiskWeights()">
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12.5px;color:var(--ink-soft)">Velocity risk (non-burst counts)</span><span class="mono" id="fw-vel-val" style="font-size:13px">5</span></div>
+                  <input type="range" class="sig-range" id="fw-vel" min="0" max="100" value="5" step="5" oninput="syncRiskWeights()">
+                </div>
+                <div style="font-size:12px;color:var(--ink-faint)">Weight sum: <span class="mono" id="fw-sum-lbl">100</span> <span id="fw-sum-warn" style="color:var(--deny);display:none">⚠ must equal 100</span></div>
               </div>
-              <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer">
-                <input type="checkbox" id="fw-use-auth-max" style="width:14px;height:14px;accent-color:var(--brand)">
-                <span style="color:var(--ink-soft)">useAuthenticatorMax — override with highest authenticator confidence</span>
-              </label>
-              <!-- authenticator confidence table -->
-              <div id="auth-conf-table" style="margin-top:12px;display:none">
-                <div class="kicker" style="margin-bottom:6px;font-size:11px">Authenticator confidence levels</div>
+              <!-- authenticator assurance table -->
+              <div id="auth-conf-table" style="margin-top:12px">
+                <div class="kicker" style="margin-bottom:6px;font-size:11px">Authenticator assurance levels</div>
                 <div id="auth-conf-rows" style="display:flex;flex-direction:column;gap:2px"></div>
               </div>
               <button class="btn sm primary" style="margin-top:14px;width:100%" onclick="saveWeights()">Save weights</button>
@@ -2107,14 +2110,13 @@ function selectCase(i){
       <div style="display:flex;flex-direction:column;gap:1px">
         ${kv('Fraud score',sig.fraudScore)}
         ${kv('Device score',sig.deviceScore)}
-        ${kv('Effective confidence',sig.effectiveConfidence!=null?sig.effectiveConfidence+'%':undefined)}
-        ${kv('Required confidence',sig.requiredConfidence!=null?sig.requiredConfidence+'%':undefined)}
+        ${kv('Composite risk',sig.compositeRisk!=null?sig.compositeRisk:'—',sig.compositeRisk>=65?'deny':sig.compositeRisk>=36?'sn-review':'sn-allow')}
+        ${kv('Risk level',sig.riskLevel,riskCls2(sig.riskLevel))}
         ${kv('Current AL',sig.currentAL||'none')}
         ${kv('Required AL',sig.requiredAL)}
         ${kv('Geography',sig.geography||'unknown')}
         ${kv('Velocity 1m',sig.velocity?.velocity_1m)}
         ${kv('AL meets required',sig.alMeetsRequired)}
-        ${kv('Confidence meets action',sig.confidenceMeetsAction)}
       </div>
     </div>
     ${(()=>{
@@ -2218,9 +2220,9 @@ function stageBody(n, t, r){
     const rawFrd=t.data_lookup?.user?.fraud_score, adjFrd=sig.fraudScore;
     const frdAdj=rawFrd!=null&&adjFrd!=null&&rawFrd!==adjFrd;
     return kvBlock([
-      kv('Fraud score', adjFrd+(frdAdj?` ← was ${rawFrd}`:'')),
-      kv('Device score', adjDev+(devAdj?` ← was ${rawDev}`:'')),
-      (devAdj||frdAdj)?kv('Score enriched','yes — IP / new-device adjustments applied','deny'):'',
+      kv('Fraud score', sig.fraudScore),
+      kv('Device score', sig.deviceScore),
+      kv('Ambient trust score', sig.ambientTrustScore),
       en.ip_abuse_score!=null?kv('IP abuse score', en.ip_abuse_score, en.ip_abuse_score>80?'deny':en.ip_abuse_score>50?'sn-review':''):'',
       kv('New device', en.is_new_device),
       kv('Geography', geo||'unknown'),
@@ -2230,11 +2232,23 @@ function stageBody(n, t, r){
   }
   if(n===3){
     const sig=t.signals||{}, ctx=t.context||{}, en=t.enrichment||sig.enrichment||{};
-    return kvBlock([kv('Risk level',ctx.riskLevel,riskCls2(ctx.riskLevel)),kv('Effective confidence',ctx.effectiveConfidence!==undefined?ctx.effectiveConfidence+'%':undefined),kv('Ambient trust score',sig.ambientTrustScore),kv('ATO signals',en.ato_signal_count),kv('Is proxy',en.is_proxy),kv('Is VPN',en.is_vpn),kv('IP abuse score',en.ip_abuse_score),kv('Email breached',en.email_breached),kv('Bot / scanner',en.is_greynoise_bot)]);
+    const comp=ctx.components||{};
+    return kvBlock([
+      kv('Composite risk',ctx.compositeRisk!==undefined?ctx.compositeRisk:'—',ctx.compositeRisk>=65?'deny':ctx.compositeRisk>=36?'sn-review':'sn-allow'),
+      kv('Risk level',ctx.riskLevel,riskCls2(ctx.riskLevel)),
+      kv('Risk ceiling breached',ctx.risk_ceiling_breached,ctx.risk_ceiling_breached?'deny':''),
+      kv('Component: customer',comp.customer),
+      kv('Component: device',comp.device),
+      kv('Component: behavioural',comp.behavioural),
+      kv('Component: network',comp.network),
+      kv('Component: velocity',comp.velocity),
+      kv('Ambient trust score',sig.ambientTrustScore||ctx.ambientTrustScore),
+      kv('ATO signals',en.ato_signal_count),kv('Is proxy',en.is_proxy),kv('Is VPN',en.is_vpn),kv('IP abuse score',en.ip_abuse_score),kv('Email breached',en.email_breached),kv('Bot / scanner',en.is_greynoise_bot),
+    ]);
   }
   if(n===4){
     const ctx=t.context||{};
-    return kvBlock([kv('Action tier',ctx.actionTier),kv('Required confidence',ctx.requiredConfidence!==undefined?ctx.requiredConfidence+'%':undefined),kv('Effective confidence',ctx.effectiveConfidence!==undefined?ctx.effectiveConfidence+'%':undefined),kv('Current AL',ctx.currentAL||ctx.currentAuthLevel||'none'),kv('Required AL',ctx.requiredAL),kv('AL meets required',ctx.alMeetsRequired),kv('Confidence meets action',ctx.confidenceMeetsAction)]);
+    return kvBlock([kv('Action tier',ctx.actionTier),kv('Composite risk',ctx.compositeRisk!==undefined?ctx.compositeRisk:'—',ctx.compositeRisk>=65?'deny':ctx.compositeRisk>=36?'sn-review':'sn-allow'),kv('Risk ceiling breached',ctx.risk_ceiling_breached,ctx.risk_ceiling_breached?'deny':''),kv('Current AL',ctx.currentAL||ctx.currentAuthLevel||'none'),kv('Required AL',ctx.requiredAL),kv('AL meets required',ctx.alMeetsRequired)]);
   }
   if(n===5){
     const rules=t.policy?.rules_evaluated||[];
@@ -2474,23 +2488,17 @@ async function daemonAct(act){
 
 // ── Policy rules list ─────────────────────────────────────────────
 const _ruleLabels={
-  deny_tor_exit_node:'Deny · Tor exit node',deny_greynoise_bot:'Deny · GreyNoise bot/scanner',
-  idv_ato_high_confidence:'IDV · ATO 2+ signals (new device + breach + proxy)',
-  frictionless_high_ambient_trust:'Frictionless · High ambient trust (Tier1/2)',
-  step_up_low_ambient_trust:'Step-up · Low ambient trust (any tier)',
-  step_up_vpn_high_tier:'Step-up · VPN on high-tier action',
-  deny_velocity_burst:'Deny · Velocity burst (>5 in 1m) — requires Redis',
-  manual_review_velocity_elevated:'Review · Elevated velocity (>10 in 5m) — requires Redis',
-  deny_high_tier4:'Deny · High risk + Tier4',
-  manual_review_high_tier2_tier3:'Review · High risk + Tier2/3',
-  step_up_high_med_tier1:'Step-up · High/Medium + Tier1',
-  manual_review_medium_tier4:'Review · Medium risk + Tier4',
-  step_up_medium_tier2_tier3:'Step-up · Medium risk + Tier2/3',
-  step_up_low_trusted_tier4:'Step-up · Low risk + Tier4',
-  step_up_low_untrusted_device:'Step-up · Low risk + untrusted device',
-  allow_low_risk:'Allow · Low risk (default allow)',
-  step_up_low_risk:'Step-up · Low risk additional auth',
-  allow_al_met:'Allow · Auth level already met',
+  // v4 rules
+  deny_tor_exit_node:'Gate: Deny · Tor exit node',
+  deny_greynoise_bot:'Gate: Deny · GreyNoise bot/scanner',
+  deny_velocity_burst:'Gate: Deny · Velocity burst (>5 in 1m) — requires Redis',
+  manual_review_velocity_elevated:'Gate: Review · Elevated velocity (>10 in 5m) — requires Redis',
+  deny_risk_ceiling_tier4:'Deny · Risk ceiling breached (Tier4)',
+  manual_review_risk_ceiling:'Review · Risk ceiling breached (Tier2/3)',
+  step_up_al_gap_elevated_risk:'Step-up AL+1 · Assurance gap + HIGH/MEDIUM risk',
+  step_up_al_gap_low_risk:'Step-up REQUIRED_AL · Assurance gap + LOW risk',
+  step_up_high_risk_al_met:'Step-up AL+1 · HIGH risk (AL already met)',
+  allow_low_risk:'Allow · LOW risk + assurance met',
 };
 async function loadPolicyRules(){
   const wrap=document.getElementById('rules-list'); if(!wrap) return;
@@ -2521,41 +2529,25 @@ async function toggleRule(ruleId, el){
   }catch(e){ el.classList.toggle('on'); toast('Toggle: '+e.message,'error'); }
 }
 
-// ── Confidence settings (tiers, risk bands, weights) ─────────────
+// ── Risk settings (risk bands, composite weights) ─────────────────
 async function loadConfidenceSettings(){
   try{
-    _confPolicy=await api('/policies/confidence');
-    // tier sliders
-    const ts=document.getElementById('tier-sliders'); if(ts){
-      const tiers=_confPolicy.actionTierRequirements||{};
-      ts.innerHTML=Object.entries(tiers).map(([tier,val])=>`
-        <div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-            <span style="font-size:12.5px;color:var(--ink-soft)">${tier}</span>
-            <span class="mono" id="ts-${tier}-val" style="font-size:13px">${val}%</span>
-          </div>
-          <input type="range" class="sig-range" id="ts-${tier}" min="0" max="100" value="${val}" step="5"
-            oninput="document.getElementById('ts-${tier}-val').textContent=this.value+'%'">
-        </div>`).join('');
-    }
-    // risk bands
-    const high=_confPolicy.riskLevelBands?.HIGH?.fraudScoreMin??80;
-    const med=_confPolicy.riskLevelBands?.MEDIUM?.fraudScoreMin??26;
+    _confPolicy=await api('/policies/risk');
+    // risk bands — now on compositeRisk
+    const high=_confPolicy.riskLevelBands?.HIGH?.compositeRiskMin??65;
+    const med=_confPolicy.riskLevelBands?.MEDIUM?.compositeRiskMin??36;
     const rbh=document.getElementById('rb-high'), rbm=document.getElementById('rb-med');
     if(rbh){ rbh.value=high; document.getElementById('rb-high-val').textContent=high; }
     if(rbm){ rbm.value=med; document.getElementById('rb-med-val').textContent=med; }
-    // weights
-    const dw=_confPolicy.effectiveConfidence?.deviceWeight??40;
-    const fw=_confPolicy.effectiveConfidence?.fraudWeight??60;
-    const fdv=document.getElementById('fw-dev'), ffr=document.getElementById('fw-frau');
-    if(fdv){ fdv.value=dw; document.getElementById('fw-dev-val').textContent=dw; document.getElementById('fw-dev-f').textContent=dw; }
-    if(ffr){ ffr.value=fw; document.getElementById('fw-frau-val').textContent=fw; document.getElementById('fw-frau-f').textContent=fw; }
-    // useAuthenticatorMax
-    const uamCb=document.getElementById('fw-use-auth-max');
-    if(uamCb) uamCb.checked=!!(_confPolicy.effectiveConfidence?.useAuthenticatorMax);
+    // composite weights — 5 sliders
+    const w=_confPolicy.compositeRisk?.weights||{customer:40,device:25,behavioural:15,network:15,velocity:5};
+    [['cust',w.customer??40],['dev',w.device??25],['beh',w.behavioural??15],['net',w.network??15],['vel',w.velocity??5]].forEach(([k,v])=>{
+      const el=document.getElementById('fw-'+k); if(el){ el.value=v; document.getElementById('fw-'+k+'-val').textContent=v; }
+    });
+    syncRiskWeights();
     // risk bands preview
     updateBandPreview();
-    // authenticator table
+    // authenticator assurance table
     loadAuthenticatorTable();
   }catch(e){}
 }
@@ -2564,39 +2556,30 @@ async function loadAuthenticatorTable(){
     const data=await api('/data/authenticators');
     const auths=(data.authenticators||data||[]);
     const wrap=document.getElementById('auth-conf-rows');
-    const tbl=document.getElementById('auth-conf-table');
     if(!wrap||!auths.length) return;
-    wrap.innerHTML=auths.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line-soft)"><span style="font-size:12px;color:var(--ink-soft)">${a.id||a.authenticator_id||'—'}</span><span class="mono" style="font-size:12px">${a.confidence_level??'—'} · AL${a.assurance_level||'?'}</span></div>`).join('');
-    if(tbl) tbl.style.display='block';
+    wrap.innerHTML=auths.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line-soft)"><span style="font-size:12px;color:var(--ink-soft)">${a.id||'—'}</span><span class="mono" style="font-size:12px">${a.assurance_level||'?'} · ${a.description||'—'}</span></div>`).join('');
   }catch(e){}
 }
-function syncWeights(src,val){
-  const other=src==='dev'?'frau':'dev';
-  const linked=Math.max(0,Math.min(100,100-parseInt(val,10)));
-  const otherEl=document.getElementById('fw-'+other), otherVal=document.getElementById('fw-'+other+'-val'), otherF=document.getElementById('fw-'+other+'-f');
-  if(otherEl) otherEl.value=linked;
-  if(otherVal) otherVal.textContent=linked;
-  if(otherF) otherF.textContent=linked;
-  const myF=document.getElementById('fw-'+src+'-f'); if(myF) myF.textContent=val;
-  const myV=document.getElementById('fw-'+src+'-val'); if(myV) myV.textContent=val;
-}
-async function saveConfidence(){
-  if(!_confPolicy){toast('Not loaded','error');return;}
-  const tiers={};
-  ['Tier1','Tier2','Tier3','Tier4'].forEach(t=>{const el=document.getElementById('ts-'+t);if(el) tiers[t]=parseInt(el.value,10);});
-  try{
-    await api('/policies/confidence',{method:'PATCH',body:JSON.stringify({actionTierRequirements:tiers})});
-    toast('Tier thresholds saved','success');
-  }catch(e){ toast('Save: '+e.message,'error'); }
+function syncRiskWeights(){
+  const ids=['cust','dev','beh','net','vel'];
+  let sum=0;
+  ids.forEach(k=>{
+    const el=document.getElementById('fw-'+k);
+    const v=parseInt(el?.value||'0',10);
+    sum+=v;
+    const vl=document.getElementById('fw-'+k+'-val'); if(vl) vl.textContent=v;
+  });
+  const sl=document.getElementById('fw-sum-lbl'), sw=document.getElementById('fw-sum-warn');
+  if(sl) sl.textContent=sum;
+  if(sw) sw.style.display=Math.abs(sum-100)<0.01?'none':'inline';
 }
 function updateBandPreview(){
-  const high=parseInt(document.getElementById('rb-high')?.value||'80',10);
-  const med=parseInt(document.getElementById('rb-med')?.value||'26',10);
+  const high=parseInt(document.getElementById('rb-high')?.value||'65',10);
+  const med=parseInt(document.getElementById('rb-med')?.value||'36',10);
   const valid=high>med;
   const err=document.getElementById('rb-err'), btn=document.getElementById('rb-save-btn');
   if(err) err.style.display=valid?'none':'block';
   if(btn) btn.disabled=!valid;
-  // flex proportions: LOW=0 to med, MEDIUM=med to high, HIGH=high to 100
   const lowFl=med, medFl=high-med, highFl=100-high;
   const lo=document.getElementById('rb-low-seg'),me=document.getElementById('rb-med-seg'),hi=document.getElementById('rb-high-seg');
   if(lo) lo.style.flex=String(lowFl);
@@ -2605,25 +2588,29 @@ function updateBandPreview(){
 }
 async function saveRiskBands(){
   if(!_confPolicy){toast('Not loaded','error');return;}
-  const high=parseInt(document.getElementById('rb-high')?.value||'80',10);
-  const med=parseInt(document.getElementById('rb-med')?.value||'26',10);
+  const high=parseInt(document.getElementById('rb-high')?.value||'65',10);
+  const med=parseInt(document.getElementById('rb-med')?.value||'36',10);
   if(high<=med){toast('HIGH threshold must be > MEDIUM','error');return;}
-  const bands={HIGH:{fraudScoreMin:high},MEDIUM:{fraudScoreMin:med,fraudScoreMax:high-1},LOW:{fraudScoreMax:med-1}};
+  const bands={HIGH:{compositeRiskMin:high},MEDIUM:{compositeRiskMin:med,compositeRiskMax:high-1},LOW:{compositeRiskMax:med-1}};
   try{
-    await api('/policies/confidence',{method:'PATCH',body:JSON.stringify({riskLevelBands:bands})});
+    await api('/policies/risk',{method:'PATCH',body:JSON.stringify({riskLevelBands:bands})});
     toast('Risk bands saved','success');
   }catch(e){ toast('Save: '+e.message,'error'); }
 }
 async function saveWeights(){
   if(!_confPolicy){toast('Not loaded','error');return;}
-  const dw=parseInt(document.getElementById('fw-dev')?.value||'40',10);
-  const fw=100-dw;
-  const uam=document.getElementById('fw-use-auth-max')?.checked??false;
+  const ids=['cust','dev','beh','net','vel'];
+  const keys=['customer','device','behavioural','network','velocity'];
+  const weights={};
+  let sum=0;
+  ids.forEach((k,i)=>{ const v=parseInt(document.getElementById('fw-'+k)?.value||'0',10); weights[keys[i]]=v; sum+=v; });
+  if(Math.abs(sum-100)>0.01){toast(`Weights sum to ${sum} — must equal 100`,'error');return;}
   try{
-    await api('/policies/confidence',{method:'PATCH',body:JSON.stringify({effectiveConfidence:{..._confPolicy.effectiveConfidence,deviceWeight:dw,fraudWeight:fw,useAuthenticatorMax:uam}})});
-    toast(`Weights saved (device ${dw} / fraud ${fw}${uam?' · authMax on':''})`,'success');
+    await api('/policies/risk',{method:'PATCH',body:JSON.stringify({compositeRisk:{..._confPolicy.compositeRisk,weights}})});
+    toast(`Composite weights saved (sum=${sum})`,'success');
   }catch(e){ toast('Save: '+e.message,'error'); }
 }
+async function saveConfidence(){ /* no-op — replaced by saveWeights */ }
 
 async function loadVelocity(){
   try{

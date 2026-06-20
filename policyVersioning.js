@@ -120,7 +120,7 @@ async function rollback(policyName, versionId, { author = 'rollback' } = {}) {
     // Clear engine cache
     const cacheClears = {
         decisions:  () => require('./policyEngine').clearCache(),
-        confidence: () => require('./confidenceEngine').clearCache(),
+        risk:       () => require('./riskEngine').clearCache(),
         idvRouting: () => require('./idvRouting').clearCache(),
     };
     if (cacheClears[policyName]) cacheClears[policyName]();

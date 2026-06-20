@@ -44,13 +44,7 @@ function resolveStepUpType(rawType, context) {
 function matchesCondition(condition, context) {
     if (!condition) return true;
 
-    if (condition.fraudScoreMin != null && context.fraudScore < condition.fraudScoreMin)
-        return false;
-    if (condition.fraudScoreMax != null && context.fraudScore > condition.fraudScoreMax)
-        return false;
-    if (condition.deviceScoreMin != null && context.deviceScore < condition.deviceScoreMin)
-        return false;
-    if (condition.deviceScoreMax != null && context.deviceScore > condition.deviceScoreMax)
+    if (condition.risk_ceiling_breached != null && context.risk_ceiling_breached !== condition.risk_ceiling_breached)
         return false;
     if (condition.riskLevel != null) {
         const allowed = Array.isArray(condition.riskLevel)
@@ -73,8 +67,6 @@ function matchesCondition(condition, context) {
     if (condition.requiredAL != null && context.requiredAL !== condition.requiredAL)
         return false;
     if (condition.alMeetsRequired != null && context.alMeetsRequired !== condition.alMeetsRequired)
-        return false;
-    if (condition.confidenceMeetsAction != null && context.confidenceMeetsAction !== condition.confidenceMeetsAction)
         return false;
 
     // Checks if current auth AL index is strictly less than the named level
@@ -112,20 +104,13 @@ function matchesCondition(condition, context) {
         if (context.ip_abuse_score < condition.ip_abuse_score_gte) return false;
     }
 
-    // Ambient Trust Score conditions
-    if (condition.ambient_trust_gte != null && (context.ambientTrustScore ?? 50) < condition.ambient_trust_gte) return false;
-    if (condition.ambient_trust_lte != null && (context.ambientTrustScore ?? 50) > condition.ambient_trust_lte) return false;
-
     return true;
 }
 
 function conditionToSummary(condition) {
     if (!condition) return 'none';
     const parts = [];
-    if (condition.fraudScoreMin != null) parts.push(`fraudScore ≥ ${condition.fraudScoreMin}`);
-    if (condition.fraudScoreMax != null) parts.push(`fraudScore ≤ ${condition.fraudScoreMax}`);
-    if (condition.deviceScoreMin != null) parts.push(`deviceScore ≥ ${condition.deviceScoreMin}`);
-    if (condition.deviceScoreMax != null) parts.push(`deviceScore ≤ ${condition.deviceScoreMax}`);
+    if (condition.risk_ceiling_breached != null) parts.push(`risk_ceiling_breached = ${condition.risk_ceiling_breached}`);
     if (condition.riskLevel != null) {
         const r = condition.riskLevel;
         parts.push(`riskLevel ∈ [${Array.isArray(r) ? r.join(', ') : r}]`);
@@ -140,7 +125,6 @@ function conditionToSummary(condition) {
     }
     if (condition.requiredAL != null) parts.push(`requiredAL = ${condition.requiredAL}`);
     if (condition.alMeetsRequired != null) parts.push(`alMeetsRequired = ${condition.alMeetsRequired}`);
-    if (condition.confidenceMeetsAction != null) parts.push(`confidenceMeetsAction = ${condition.confidenceMeetsAction}`);
     if (condition.currentAuthLevelLessThan != null) parts.push(`currentAuthLevel < ${condition.currentAuthLevelLessThan}`);
     if (condition.velocity_1m_gt != null) parts.push(`velocity_1m > ${condition.velocity_1m_gt}`);
     if (condition.velocity_5m_gt != null) parts.push(`velocity_5m > ${condition.velocity_5m_gt}`);
@@ -154,8 +138,6 @@ function conditionToSummary(condition) {
     if (condition.is_greynoise_bot != null) parts.push(`is_greynoise_bot = ${condition.is_greynoise_bot}`);
     if (condition.ato_signal_count_gte != null) parts.push(`ato_signal_count >= ${condition.ato_signal_count_gte}`);
     if (condition.ip_abuse_score_gte != null) parts.push(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`);
-    if (condition.ambient_trust_gte != null) parts.push(`ambientTrustScore >= ${condition.ambient_trust_gte}`);
-    if (condition.ambient_trust_lte != null) parts.push(`ambientTrustScore <= ${condition.ambient_trust_lte}`);
     return parts.length ? parts.join(', ') : 'none';
 }
 
@@ -168,10 +150,7 @@ function explainCondition(condition, context) {
         return result;
     };
 
-    if (condition.fraudScoreMin != null && !check(`fraudScore >= ${condition.fraudScoreMin}`, context.fraudScore >= condition.fraudScoreMin, context.fraudScore)) return steps;
-    if (condition.fraudScoreMax != null && !check(`fraudScore <= ${condition.fraudScoreMax}`, context.fraudScore <= condition.fraudScoreMax, context.fraudScore)) return steps;
-    if (condition.deviceScoreMin != null && !check(`deviceScore >= ${condition.deviceScoreMin}`, context.deviceScore >= condition.deviceScoreMin, context.deviceScore)) return steps;
-    if (condition.deviceScoreMax != null && !check(`deviceScore <= ${condition.deviceScoreMax}`, context.deviceScore <= condition.deviceScoreMax, context.deviceScore)) return steps;
+    if (condition.risk_ceiling_breached != null && !check(`risk_ceiling_breached === ${condition.risk_ceiling_breached}`, context.risk_ceiling_breached === condition.risk_ceiling_breached, context.risk_ceiling_breached)) return steps;
     if (condition.riskLevel != null) {
         const allowed = Array.isArray(condition.riskLevel) ? condition.riskLevel : [condition.riskLevel];
         if (!check(`riskLevel in [${allowed.join(', ')}]`, allowed.includes(context.riskLevel), context.riskLevel)) return steps;
@@ -186,7 +165,6 @@ function explainCondition(condition, context) {
     }
     if (condition.requiredAL != null && !check(`requiredAL === ${condition.requiredAL}`, context.requiredAL === condition.requiredAL, context.requiredAL)) return steps;
     if (condition.alMeetsRequired != null && !check(`alMeetsRequired === ${condition.alMeetsRequired}`, context.alMeetsRequired === condition.alMeetsRequired, context.alMeetsRequired)) return steps;
-    if (condition.confidenceMeetsAction != null && !check(`confidenceMeetsAction === ${condition.confidenceMeetsAction}`, context.confidenceMeetsAction === condition.confidenceMeetsAction, context.confidenceMeetsAction)) return steps;
 
     if (condition.currentAuthLevelLessThan != null) {
         const threshold = AL_ORDER.indexOf(condition.currentAuthLevelLessThan);
@@ -228,8 +206,6 @@ function explainCondition(condition, context) {
         if (context.ip_abuse_score == null) { check(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`, false, 'unavailable'); return steps; }
         if (!check(`ip_abuse_score >= ${condition.ip_abuse_score_gte}`, context.ip_abuse_score >= condition.ip_abuse_score_gte, context.ip_abuse_score)) return steps;
     }
-    if (condition.ambient_trust_gte != null && !check(`ambientTrustScore >= ${condition.ambient_trust_gte}`, (context.ambientTrustScore ?? 50) >= condition.ambient_trust_gte, context.ambientTrustScore ?? 50)) return steps;
-    if (condition.ambient_trust_lte != null && !check(`ambientTrustScore <= ${condition.ambient_trust_lte}`, (context.ambientTrustScore ?? 50) <= condition.ambient_trust_lte, context.ambientTrustScore ?? 50)) return steps;
 
     return steps;
 }
@@ -311,16 +287,13 @@ function evaluateWith(config, context) {
 const VALID_DECISIONS = ['ALLOW', 'STEP_UP', 'DENY', 'MANUAL_REVIEW'];
 const VALID_STEP_UP_TYPES = ['PASSCODE', 'PASSKEY', 'SELFIE', 'IDV', 'AL_PLUS_1', 'REQUIRED_AL'];
 const VALID_CONDITION_KEYS = [
-    'fraudScoreMin', 'fraudScoreMax', 'deviceScoreMin', 'deviceScoreMax',
     'riskLevel', 'geography', 'actionTier', 'requiredAL', 'alMeetsRequired',
-    'confidenceMeetsAction', 'currentAuthLevelLessThan',
+    'risk_ceiling_breached', 'currentAuthLevelLessThan',
     'velocity_1m_gt', 'velocity_5m_gt', 'velocity_15m_gt',
-    // Intelligence enrichment conditions (Phase 2)
+    // Intelligence enrichment gate conditions
     'vpn_detected', 'proxy_detected', 'hosting_detected',
     'tor_detected', 'email_breached', 'ato_signal_count_gte',
     'ip_abuse_score_gte', 'is_new_device', 'is_greynoise_bot',
-    // Ambient Trust Score conditions (Phase 5)
-    'ambient_trust_gte', 'ambient_trust_lte',
 ];
 
 /**

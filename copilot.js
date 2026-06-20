@@ -29,12 +29,15 @@ const AVAILABLE = !!process.env.ANTHROPIC_API_KEY;
 const SYSTEM_PROMPT = `You are a trust & fraud policy assistant for a banking risk engine.
 Your job is to translate a natural language policy intent into a single rule object that the engine can execute.
 
-CONTEXT — the decision pipeline:
-- Each request carries: customer_id, action (with tier Tier1–Tier4), device_id, current_auth_level (AL1–AL4)
-- Computed signals: fraudScore (0–100, higher = riskier), deviceScore (0–100, higher = trusted),
-  riskLevel (LOW/MEDIUM/HIGH), alMeetsRequired (bool), effectiveConfidence (0–100),
-  velocity counts (velocity_1m, velocity_5m, velocity_15m)
-- AL hierarchy: AL1 (passcode/FaceID) < AL2 (passkey) < AL3 (selfie) < AL4 (IDV)
+CONTEXT — the decision pipeline (v4 composite risk model):
+- Each request carries: customer_id, action (with tier Tier1–Tier4, risk_ceiling per tier), device_id, current_auth_level (AL1–AL4)
+- Scoring: compositeRisk (0–100, weighted average of 5 components) → riskLevel (LOW/MEDIUM/HIGH)
+  Components: customerRisk (fraudScore), deviceRisk (100−deviceScore), behaviouralRisk (100−ambientTrustScore),
+  networkRisk (additive: ip_abuse, vpn, proxy, new_device, breach), velocityRisk (non-burst counts)
+- Hard gates (evaluated before scoring): tor_detected → DENY, is_greynoise_bot → DENY,
+  velocity_1m_gt: 5 → DENY, velocity_5m_gt: 10 → MANUAL_REVIEW
+- risk_ceiling_breached: true when compositeRisk > action's risk_ceiling (Tier1=85, Tier2=70, Tier3=55, Tier4=40)
+- Assurance ladder: alMeetsRequired (bool), AL1 (FaceID) < AL2 (passkey) < AL3 (selfie) < AL4 (IDV)
 - Decisions: ALLOW, STEP_UP, DENY, MANUAL_REVIEW. STEP_UP requires a step_up_type.
 
 VALID condition keys (only these are recognised):

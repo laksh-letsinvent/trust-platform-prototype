@@ -37,7 +37,7 @@ function initAmplitude() {
  *   geography: string|null,
  *   fraudScore: number,
  *   deviceScore: number,
- *   effectiveConfidence: number,
+ *   compositeRisk: number,
  *   velocity: { velocity_1m: number, velocity_5m: number, velocity_15m: number }|null
  * }} entry
  */
@@ -55,9 +55,9 @@ function trackDecision(entry) {
                 action:               entry.action               || null,
                 rule_id:              entry.ruleId               || null,
                 geography:            entry.geography            || null,
-                fraud_score:          entry.fraudScore           ?? null,
-                device_score:         entry.deviceScore          ?? null,
-                effective_confidence: entry.effectiveConfidence  ?? null,
+                fraud_score:          entry.fraudScore    ?? null,
+                device_score:         entry.deviceScore   ?? null,
+                composite_risk:       entry.compositeRisk ?? null,
                 reference_id:         entry.reference_id         || null,
                 velocity_1m:          entry.velocity?.velocity_1m  ?? 0,
                 velocity_5m:          entry.velocity?.velocity_5m  ?? 0,

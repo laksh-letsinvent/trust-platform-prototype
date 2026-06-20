@@ -1,11 +1,11 @@
 {
-  "version": "3.0",
-  "description": "Trust decision rules evaluated in order (first match wins). Outcomes: ALLOW, STEP_UP, DENY, MANUAL_REVIEW. step_up_type supports AL_PLUS_1 (one level above required) and REQUIRED_AL (exact required level) as dynamic tokens.",
+  "version": "4.0",
+  "description": "Trust decision rules v4 — two-axis model: compositeRisk band × assurance gap. Hard gates evaluate before scoring; risk signals feed the composite, not individual rules.",
   "rules": [
     {
       "id": "deny_tor_exit_node",
       "enabled": true,
-      "description": "Deny: request from Tor exit node",
+      "description": "Gate: deny request from Tor exit node",
       "condition": {
         "tor_detected": true
       },
@@ -16,7 +16,7 @@
     {
       "id": "deny_greynoise_bot",
       "enabled": true,
-      "description": "Deny: IP flagged as automated scanner by GreyNoise",
+      "description": "Gate: deny IP flagged as automated scanner by GreyNoise",
       "condition": {
         "is_greynoise_bot": true
       },
@@ -25,64 +25,9 @@
       "display_message": "Something looks unusual about this request. Please try again."
     },
     {
-      "id": "idv_ato_high_confidence",
-      "enabled": true,
-      "description": "Step-up IDV: 2+ ATO signals detected (new device + breach + proxy/VPN)",
-      "condition": {
-        "ato_signal_count_gte": 2
-      },
-      "decision": "STEP_UP",
-      "step_up_type": "IDV",
-      "reason": "Multiple account takeover signals detected; full identity verification required.",
-      "display_message": "For your security, we need to verify your identity before continuing."
-    },
-    {
-      "id": "frictionless_high_ambient_trust",
-      "enabled": true,
-      "description": "Frictionless allow: very high ambient trust (90+) on Tier1/Tier2 — loyal customer skip step-up",
-      "condition": {
-        "ambient_trust_gte": 90,
-        "actionTier": [
-          "Tier1",
-          "Tier2"
-        ]
-      },
-      "decision": "ALLOW",
-      "reason": "High ambient trust from consistent behaviour; no additional authentication required.",
-      "display_message": "All good — your account history confirms it's you."
-    },
-    {
-      "id": "step_up_low_ambient_trust",
-      "enabled": true,
-      "description": "Step-up: low ambient trust (under 30) regardless of action tier",
-      "condition": {
-        "ambient_trust_lte": 30
-      },
-      "decision": "STEP_UP",
-      "step_up_type": "AL_PLUS_1",
-      "reason": "Low ambient trust from recent suspicious signals; additional verification required.",
-      "display_message": "For your security, we need a quick check — your recent account activity flagged a concern."
-    },
-    {
-      "id": "step_up_vpn_high_tier",
-      "enabled": true,
-      "description": "Step-up selfie: VPN detected on high-value action",
-      "condition": {
-        "vpn_detected": true,
-        "actionTier": [
-          "Tier3",
-          "Tier4"
-        ]
-      },
-      "decision": "STEP_UP",
-      "step_up_type": "SELFIE",
-      "reason": "VPN detected on high-value action; selfie verification required.",
-      "display_message": "We noticed you're using a VPN. A quick selfie check keeps your account safe."
-    },
-    {
       "id": "deny_velocity_burst",
       "enabled": true,
-      "description": "Deny: request burst — more than 5 requests in 1 minute from same customer",
+      "description": "Gate: deny request burst — more than 5 requests in 1 minute from same customer",
       "condition": {
         "velocity_1m_gt": 5
       },
@@ -93,7 +38,7 @@
     {
       "id": "manual_review_velocity_elevated",
       "enabled": true,
-      "description": "Manual review: elevated velocity — more than 10 requests in 5 minutes",
+      "description": "Gate: manual review for elevated velocity — more than 10 requests in 5 minutes",
       "condition": {
         "velocity_5m_gt": 10
       },
@@ -102,141 +47,78 @@
       "display_message": "Your activity is being reviewed. We will be in touch shortly."
     },
     {
-      "id": "deny_high_tier4",
+      "id": "deny_risk_ceiling_tier4",
       "enabled": true,
-      "description": "Deny: high fraud risk on Tier4 (account recovery / highest-value) action",
+      "description": "Deny: composite risk exceeds ceiling for Tier4 (account recovery)",
       "condition": {
-        "riskLevel": "HIGH",
+        "risk_ceiling_breached": true,
         "actionTier": "Tier4"
       },
       "decision": "DENY",
-      "reason": "High fraud risk on account recovery; access denied for customer protection.",
+      "reason": "Risk level exceeds tolerance for account recovery; access denied for customer protection.",
       "display_message": "We're unable to process this request right now. Please contact support."
     },
     {
-      "id": "manual_review_high_tier2_tier3",
+      "id": "manual_review_risk_ceiling",
       "enabled": true,
-      "description": "Manual review: high risk on Tier2 or Tier3 (payment/transfer/high-value) action",
+      "description": "Manual review: composite risk exceeds ceiling for Tier2 or Tier3 action",
       "condition": {
-        "riskLevel": "HIGH",
-        "actionTier": [
-          "Tier2",
-          "Tier3"
-        ]
+        "risk_ceiling_breached": true,
+        "actionTier": ["Tier2", "Tier3"]
       },
       "decision": "MANUAL_REVIEW",
-      "reason": "High fraud risk with significant action; routing to manual review.",
+      "reason": "Risk level exceeds tolerance for this action; routing to manual review.",
       "display_message": "Your transaction is being reviewed for security purposes. We'll notify you soon."
     },
     {
-      "id": "step_up_high_med_tier1",
+      "id": "step_up_al_gap_elevated_risk",
       "enabled": true,
-      "description": "Step-up: high or medium risk customer on Tier1 action with auth below AL2 — enforce minimum AL2",
+      "description": "Step-up: assurance gap on elevated (HIGH/MEDIUM) risk — enforce one level above required",
       "condition": {
-        "riskLevel": [
-          "HIGH",
-          "MEDIUM"
-        ],
-        "actionTier": "Tier1",
-        "currentAuthLevelLessThan": "AL2"
-      },
-      "decision": "STEP_UP",
-      "step_up_type": "PASSKEY",
-      "reason": "Risk profile requires stronger authentication (minimum AL2) even for low-value actions.",
-      "display_message": "Please verify with your passkey to continue."
-    },
-    {
-      "id": "manual_review_medium_tier4",
-      "enabled": true,
-      "description": "Manual review: medium risk on Tier4 (account recovery) action",
-      "condition": {
-        "riskLevel": "MEDIUM",
-        "actionTier": "Tier4"
-      },
-      "decision": "MANUAL_REVIEW",
-      "reason": "Medium risk with account recovery action; routing to manual review.",
-      "display_message": "Your account recovery request is under review. We'll be in touch."
-    },
-    {
-      "id": "step_up_medium_tier2_tier3",
-      "enabled": true,
-      "description": "Step-up: medium risk on Tier2/Tier3 without sufficient AL — enforce one level above required",
-      "condition": {
-        "riskLevel": "MEDIUM",
-        "actionTier": [
-          "Tier2",
-          "Tier3"
-        ],
-        "alMeetsRequired": false
+        "alMeetsRequired": false,
+        "riskLevel": ["HIGH", "MEDIUM"]
       },
       "decision": "STEP_UP",
       "step_up_type": "AL_PLUS_1",
-      "reason": "Medium risk on significant action; step up one level above required authentication.",
-      "display_message": "Additional verification is required for this transaction."
+      "reason": "Elevated risk with insufficient authentication; step up one level above required.",
+      "display_message": "Additional verification is required for this action."
     },
     {
-      "id": "step_up_low_trusted_tier4",
+      "id": "step_up_al_gap_low_risk",
       "enabled": true,
-      "description": "Step-up shortcut: low risk + highly trusted device + Tier4 — selfie (AL3) instead of full IDV",
+      "description": "Step-up: assurance gap on low risk — enforce required AL only",
       "condition": {
-        "riskLevel": "LOW",
-        "actionTier": "Tier4",
-        "deviceScoreMin": 85,
-        "alMeetsRequired": false
+        "alMeetsRequired": false,
+        "riskLevel": "LOW"
       },
       "decision": "STEP_UP",
-      "step_up_type": "SELFIE",
-      "reason": "Low risk with trusted device; selfie verification (AL3) accepted for account recovery.",
-      "display_message": "A quick selfie is all we need to complete your account recovery."
+      "step_up_type": "REQUIRED_AL",
+      "reason": "Authentication level below required for this action.",
+      "display_message": "One more step needed for this action."
     },
     {
-      "id": "step_up_low_untrusted_device",
+      "id": "step_up_high_risk_al_met",
       "enabled": true,
-      "description": "Step-up: low risk but very untrusted device (score < 15) — enforce one level above required",
+      "description": "Step-up: high composite risk even when assurance is met — enforce extra factor",
       "condition": {
-        "riskLevel": "LOW",
-        "deviceScoreMax": 14,
-        "alMeetsRequired": false
+        "riskLevel": "HIGH",
+        "alMeetsRequired": true
       },
       "decision": "STEP_UP",
       "step_up_type": "AL_PLUS_1",
-      "reason": "Untrusted device on low-risk customer; additional authentication required.",
-      "display_message": "We don't recognise this device. Please verify to continue."
+      "reason": "High risk profile requires additional authentication beyond the required level.",
+      "display_message": "For your security, an extra verification step is required."
     },
     {
       "id": "allow_low_risk",
       "enabled": true,
-      "description": "Frictionless allow: low risk and current auth level meets or exceeds required",
+      "description": "Frictionless allow: low composite risk and assurance level met",
       "condition": {
         "riskLevel": "LOW",
         "alMeetsRequired": true
       },
       "decision": "ALLOW",
-      "reason": "Low fraud risk and authentication level sufficient for this action.",
-      "display_message": "You're good to go."
-    },
-    {
-      "id": "step_up_low_risk",
-      "enabled": true,
-      "description": "Step-up: low risk but current auth level below required — enforce required AL",
-      "condition": {
-        "riskLevel": "LOW",
-        "alMeetsRequired": false
-      },
-      "decision": "STEP_UP",
-      "step_up_type": "REQUIRED_AL",
-      "reason": "Low risk but additional authentication required for this action.",
-      "display_message": "One more step needed for this action."
-    },
-    {
-      "id": "allow_al_met",
-      "enabled": true,
-      "description": "Frictionless allow: auth level satisfied (catch-all for remaining scenarios with sufficient auth)",
-      "condition": {
-        "alMeetsRequired": true
-      },
-      "decision": "ALLOW",
-      "reason": "Authentication level sufficient for this action.",
+      "reason": "Low composite risk and authentication sufficient for this action.",
       "display_message": "You're good to go."
     }
   ],

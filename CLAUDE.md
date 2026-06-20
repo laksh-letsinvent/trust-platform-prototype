@@ -67,7 +67,7 @@ This is a **trust decision engine** for banking/fintech. Every customer action r
 POST /trust/decision
   → decisionEngine.js          (orchestrates the pipeline)
   → enrichmentOrchestrator.js  (parallel enrichment: IP/VPN/proxy/tor, AbuseIPDB, HIBP, GreyNoise)
-  → confidenceEngine.js        (computes risk level + effective confidence from signals)
+  → riskEngine.js              (computes compositeRisk from 5 components + riskLevel band)
   → policyEngine.js            (evaluates ordered decision rules → ALLOW / STEP_UP / DENY / MANUAL_REVIEW)
   → idvRouting.js              (if step_up_type=IDV, selects vendor via routing strategy)
   → analytics.js               (records decision to in-memory ring buffer + decisions.jsonl)
@@ -84,17 +84,21 @@ POST /trust/decision
 
 ### Key design principles
 
-**Policy-driven, not code-driven.** All risk bands, confidence formulas, and decision rules live in `policies/*.json`, not in code. Changing behavior means editing JSON, not JavaScript.
+**Policy-driven, not code-driven.** All risk bands, composite-risk weights, and decision rules live in `policies/*.json`, not in code. Changing behavior means editing JSON, not JavaScript.
 
-**Data stores hold raw scores only.** `data/store.js` provides users (fraud_score, geography), devices (device_score), actions (tier, required_confidence, required_al), and authenticators (confidence_level, assurance_level). Risk classification happens in policy.
+**Data stores hold raw scores only.** `data/store.js` provides users (fraud_score, geography), devices (device_score), actions (tier, required_al, risk_ceiling), and authenticators (assurance_level). Risk classification happens in policy.
 
 **Dual data sources.** `data/store.js` transparently switches between Google Sheets (when `GOOGLE_SHEETS_SPREADSHEET_ID` is set) and local JSON files in `data/`.
 
 ### Policy files (`policies/`)
 
-- **`confidence.json`** — Defines: risk level bands (fraud score → LOW/MEDIUM/HIGH), action tier requirements (required confidence per tier), Auth Assurance Level (AL1–AL4) requirements per tier, and the effective confidence formula: `(deviceScore/100 × deviceWeight) + ((100-fraudScore)/100 × fraudWeight)`. `deviceWeight + fraudWeight` must sum to 100. Optional `useAuthenticatorMax: true` overrides with `max(calculated, authenticatorConfidence)`.
+- **`risk.json`** — Defines: composite risk weights (customer 40, device 25, behavioural 15, network 15, velocity 5 — must sum to 100), network sub-weights (additive, not sum-to-100: ip_abuse×0.6 max 60, breach 25, proxy 20, new_device 20, vpn 15), risk level bands (compositeRisk → LOW ≤35 / MEDIUM 36–64 / HIGH ≥65), and Auth Assurance Level requirements per action tier (AL1–AL4). Version 4.0.
 
-- **`decisions.json`** — Ordered array of rules; first match wins. Each rule has a `condition` (can match on fraudScoreMin/Max, deviceScoreMin/Max, riskLevel, geography, actionTier, alMeetsRequired, confidenceMeetsAction, currentAuthLevelLessThan, velocity_1m_gt, velocity_5m_gt, velocity_15m_gt, vpn_detected, proxy_detected, tor_detected, is_new_device, email_breached, is_greynoise_bot, ato_signal_count_gte, ip_abuse_score_gte, ambient_trust_gte, ambient_trust_lte, breach_count) and produces a `decision` + optional `step_up_type`. Dynamic step_up_type tokens: `AL_PLUS_1` (one AL above required) and `REQUIRED_AL` (exact required AL). Velocity rules (`deny_velocity_burst`, `manual_review_velocity_elevated`) require Redis.
+  Components: `customerRisk = fraudScore`, `deviceRisk = 100−deviceScore`, `behaviouralRisk = 100−ambientTrustScore`, `networkRisk = additive sub-scores capped 100`, `velocityRisk = non-burst velocity count`. `compositeRisk = Σ(component×weight)/100`, clamped 0–100.
+
+- **`decisions.json`** — Ordered array of rules; first match wins. Each rule has a `condition` and produces a `decision` + optional `step_up_type`. Valid condition keys: `riskLevel`, `actionTier`, `geography`, `alMeetsRequired`, `risk_ceiling_breached`, `currentAuthLevelLessThan`, `velocity_1m_gt`, `velocity_5m_gt`, `velocity_15m_gt`, `vpn_detected`, `proxy_detected`, `tor_detected`, `is_new_device`, `email_breached`, `is_greynoise_bot`, `ato_signal_count_gte`, `ip_abuse_score_gte`. Dynamic step_up_type tokens: `AL_PLUS_1` (one AL above required) and `REQUIRED_AL` (exact required AL). Velocity rules require Redis.
+
+  `risk_ceiling_breached` is a pre-computed boolean: `compositeRisk > action.risk_ceiling` (ceilings: Tier1=85, Tier2=70, Tier3=55, Tier4=40). Hard gates (tor/greynoise/velocity burst) fire first; enrichment signals feed networkRisk, not raw score mutations.
 
 - **`idvRouting.json`** — IDV vendor routing strategies: `round_robin`, `percent_split`, `time_based`, `geo_based`. Active strategy set by `active_strategy`.
 
@@ -106,29 +110,29 @@ POST /trust/decision
 
 Redis-backed, no-op when Redis is unavailable. Caches fraud scores (key: `fraud:{customerId}:{action}:{deviceId}`) and device scores (key: `device:{deviceId}`). TTLs default to env vars but are **runtime-adjustable** via `PATCH /cache/config` — changes take effect immediately for new cache writes. The same Redis client is shared with `velocityEngine.js` for sorted-set velocity tracking.
 
-### Enrichment adjustments (applied in `decisionEngine.js`)
+### Enrichment → networkRisk (v4 model)
 
-Enrichment runs in parallel before scoring. Signals adjust the raw scores additively:
+Enrichment runs in parallel before scoring. Signals **do not mutate raw scores** — they feed the `networkRisk` component (additive, capped 100):
 
-| Signal | Adjustment |
-|--------|-----------|
-| `is_tor = true` | fraudScore +40 |
-| `is_greynoise_bot = true` | fraudScore +40 |
-| `is_proxy or is_vpn = true` | fraudScore +15 |
-| `email_breached and breach_count > 2` | fraudScore +20 |
-| `ip_abuse_score > 80` | deviceScore −40 |
-| `ip_abuse_score > 50` | deviceScore −20 |
-| `is_new_device = true` (known user) | deviceScore −30 |
+| Signal | networkRisk contribution |
+|--------|--------------------------|
+| `ip_abuse_score` | `ip_abuse_score × 0.6` (max 60) |
+| `email_breached = true` | +25 |
+| `proxy_detected = true` | +20 |
+| `is_new_device = true` | +20 |
+| `vpn_detected = true` | +15 |
+
+Hard gates bypass scoring entirely: `tor_detected → DENY`, `is_greynoise_bot → DENY` (rules 1–2 in decisions.json).
 
 Adapters can be runtime-disabled per-adapter via `PATCH /adapters/config` without restarting.
 
 ### Ambient Trust Score (`ambientTrustStore.js`)
 
-Redis-backed per-customer score 0–100 (default 50, clamped 5–95). Updated on step-up completions and enrichment signals. **Decay rate is runtime-configurable** via `PATCH /trust/ats/config` (stored in `ats:cfg` Redis hash); defaults to 2 pts per 6 h cycle. The 6 h interval itself requires a restart to change. New customers always start at 50.
+Redis-backed per-customer score 0–100 (default 50, clamped 5–95). Feeds `behaviouralRisk = 100 − ambientTrustScore` in the composite. Updated on step-up completions and enrichment signals. **Decay rate is runtime-configurable** via `PATCH /trust/ats/config` (stored in `ats:cfg` Redis hash); defaults to 2 pts per 6 h cycle. The 6 h interval itself requires a restart to change. New customers always start at 50.
 
 ### Policy cache invalidation
 
-Each policy module (`confidenceEngine`, `policyEngine`, `idvRouting`) caches its parsed JSON in memory. `PATCH /policies/*` endpoints call `clearCache()` on the relevant module after writing the updated file.
+Each policy module (`riskEngine`, `policyEngine`, `idvRouting`) caches its parsed JSON in memory. `PATCH /policies/*` endpoints call `clearCache()` on the relevant module after writing the updated file.
 
 ### Policy versioning (`policyVersioning.js`)
 
@@ -149,7 +153,7 @@ Every decision is written to `decisions.jsonl` (append-only JSONL) and an in-mem
 |--------|------|-------------|
 | POST | `/trust/decision` | Main decision endpoint. Body: `{ customer_id, action, device_id, current_auth_level? }` |
 | GET | `/data/users\|devices\|actions\|authenticators` | Raw data inspection |
-| GET/PATCH | `/policies/confidence` | Confidence policy (PATCH supports partial merge; validates weights sum to 100) |
+| GET/PATCH | `/policies/risk` | Risk policy: composite weights, network sub-weights, risk bands, AL requirements (PATCH validates weights sum to 100) |
 | GET/PATCH | `/policies/decisions` | Decision rules (PATCH merges rules by `id`) |
 | GET/PATCH | `/policies/idvRouting` | IDV routing policy |
 | GET | `/policies/:name/history` | Policy version history (requires Postgres). Query: `?limit=` |
@@ -180,9 +184,8 @@ The frontend (`public/index.html`) is a single-page app served statically. Five 
 
 | Card | What it controls |
 |------|-----------------|
-| Action tier thresholds | Required confidence % per tier (Tier1–Tier4) |
-| Risk bands | Fraud score thresholds for LOW/MEDIUM/HIGH (with live visual validator) |
-| Confidence formula weights | deviceWeight / fraudWeight + `useAuthenticatorMax` toggle |
+| Composite risk weights | 5 sliders (customer/device/behavioural/network/velocity) — must sum to 100 |
+| Risk bands | compositeRisk thresholds for LOW/MEDIUM/HIGH (≤35 / 36–64 / ≥65) |
 | Velocity enforcement | Enable/disable Redis velocity rules |
 | Velocity thresholds | 1 m burst deny threshold + 5 m elevated review threshold |
 | IDV routing | Active strategy + percent-split vendor weights |
@@ -212,7 +215,7 @@ node scripts/generate-traffic.js --dry-run
 ```json
 {
   "device_id", "current_auth_level", "fraudScore", "deviceScore",
-  "geography", "velocity",
+  "ambientTrustScore", "geography", "velocity",
   "enrichment": { "is_tor", "is_vpn", "is_proxy", "is_hosting", "ip_abuse_score",
                   "email_breached", "breach_count", "is_greynoise_bot",
                   "is_new_device", "ato_signal_count" }

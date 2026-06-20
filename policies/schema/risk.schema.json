@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["compositeRisk"],
+  "properties": {
+    "version":          { "type": "string" },
+    "description":      { "type": "string" },
+    "defaultRiskLevel": { "type": "string" },
+    "compositeRisk": {
+      "type": "object",
+      "required": ["weights"],
+      "properties": {
+        "weights": {
+          "type": "object",
+          "required": ["customer", "device", "behavioural", "network", "velocity"],
+          "properties": {
+            "customer":    { "type": "number", "minimum": 0, "maximum": 100 },
+            "device":      { "type": "number", "minimum": 0, "maximum": 100 },
+            "behavioural": { "type": "number", "minimum": 0, "maximum": 100 },
+            "network":     { "type": "number", "minimum": 0, "maximum": 100 },
+            "velocity":    { "type": "number", "minimum": 0, "maximum": 100 }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "networkRisk": {
+      "type": "object",
+      "properties": {
+        "subWeights": {
+          "type": "object",
+          "properties": {
+            "ip_abuse_multiplier": { "type": "number", "minimum": 0, "maximum": 1 },
+            "email_breached":      { "type": "number", "minimum": 0, "maximum": 100 },
+            "proxy":               { "type": "number", "minimum": 0, "maximum": 100 },
+            "new_device":          { "type": "number", "minimum": 0, "maximum": 100 },
+            "vpn":                 { "type": "number", "minimum": 0, "maximum": 100 }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "riskLevelBands": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "compositeRiskMin": { "type": "number", "minimum": 0, "maximum": 100 },
+          "compositeRiskMax": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "riskLevelOrder": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "actionTierRequiredAL": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

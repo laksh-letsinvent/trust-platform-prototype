@@ -1,0 +1,44 @@
+{
+  "version": "4.0",
+  "description": "Composite risk scoring — three inputs (compositeRisk, assurance, action requirement), two-axis decision. Weights live in policy, not code.",
+  "compositeRisk": {
+    "weights": {
+      "customer": 40,
+      "device": 25,
+      "behavioural": 15,
+      "network": 15,
+      "velocity": 5
+    },
+    "_note": "weights must sum to 100; compositeRisk = Σ(component × weight) / 100"
+  },
+  "networkRisk": {
+    "subWeights": {
+      "ip_abuse_multiplier": 0.6,
+      "email_breached": 25,
+      "proxy": 20,
+      "new_device": 20,
+      "vpn": 15
+    },
+    "_note": "additive sub-weights, capped at 100 — NOT a sum-to-100 set. ip_abuse: score × multiplier (max 60)"
+  },
+  "riskLevelBands": {
+    "HIGH": {
+      "compositeRiskMin": 65
+    },
+    "MEDIUM": {
+      "compositeRiskMin": 36,
+      "compositeRiskMax": 64
+    },
+    "LOW": {
+      "compositeRiskMax": 35
+    }
+  },
+  "riskLevelOrder": ["HIGH", "MEDIUM", "LOW"],
+  "defaultRiskLevel": "MEDIUM",
+  "actionTierRequiredAL": {
+    "Tier1": "AL1",
+    "Tier2": "AL2",
+    "Tier3": "AL3",
+    "Tier4": "AL4"
+  }
+}

@@ -51,22 +51,22 @@ const DEVICES = [
 ];
 
 const ACTIONS = [
-  { id: 'view_balance',      name: 'View Balance',         tier: 'Tier1', required_al: 'AL1', required_confidence: 45 },
-  { id: 'view_statement',    name: 'View Statement',        tier: 'Tier1', required_al: 'AL1', required_confidence: 45 },
-  { id: 'bill_pay',          name: 'Bill Payment',          tier: 'Tier2', required_al: 'AL2', required_confidence: 60 },
-  { id: 'p2p_send',          name: 'P2P Transfer',          tier: 'Tier2', required_al: 'AL2', required_confidence: 60 },
-  { id: 'internal_transfer', name: 'Internal Transfer',     tier: 'Tier2', required_al: 'AL2', required_confidence: 60 },
-  { id: 'international_wire',name: 'International Wire',    tier: 'Tier3', required_al: 'AL3', required_confidence: 75 },
-  { id: 'investment_trade',  name: 'Investment Trade',      tier: 'Tier3', required_al: 'AL3', required_confidence: 75 },
-  { id: 'account_recovery',  name: 'Account Recovery',      tier: 'Tier4', required_al: 'AL4', required_confidence: 85 },
-  { id: 'add_payee',         name: 'Add New Payee',         tier: 'Tier4', required_al: 'AL4', required_confidence: 85 },
+  { id: 'view_balance',      name: 'View Balance',         tier: 'Tier1', required_al: 'AL1', risk_ceiling: 85 },
+  { id: 'view_statement',    name: 'View Statement',        tier: 'Tier1', required_al: 'AL1', risk_ceiling: 85 },
+  { id: 'bill_pay',          name: 'Bill Payment',          tier: 'Tier2', required_al: 'AL2', risk_ceiling: 70 },
+  { id: 'p2p_send',          name: 'P2P Transfer',          tier: 'Tier2', required_al: 'AL2', risk_ceiling: 70 },
+  { id: 'internal_transfer', name: 'Internal Transfer',     tier: 'Tier2', required_al: 'AL2', risk_ceiling: 70 },
+  { id: 'international_wire',name: 'International Wire',    tier: 'Tier3', required_al: 'AL3', risk_ceiling: 55 },
+  { id: 'investment_trade',  name: 'Investment Trade',      tier: 'Tier3', required_al: 'AL3', risk_ceiling: 55 },
+  { id: 'account_recovery',  name: 'Account Recovery',      tier: 'Tier4', required_al: 'AL4', risk_ceiling: 40 },
+  { id: 'add_payee',         name: 'Add New Payee',         tier: 'Tier4', required_al: 'AL4', risk_ceiling: 40 },
 ];
 
 const AUTHENTICATORS = [
-  { id: 'AL1', name: 'FaceID / Passcode',  assurance_level: 'AL1', confidence_level: 45, description: 'Device biometric or PIN — baseline auth' },
-  { id: 'AL2', name: 'Passkey',            assurance_level: 'AL2', confidence_level: 65, description: 'FIDO2 passkey — strong bound credential' },
-  { id: 'AL3', name: 'Selfie Check',       assurance_level: 'AL3', confidence_level: 80, description: 'Liveness selfie matched to account photo' },
-  { id: 'AL4', name: 'IDV',                assurance_level: 'AL4', confidence_level: 95, description: 'Full identity document verification' },
+  { id: 'AL1', name: 'FaceID / Passcode',  assurance_level: 'AL1', description: 'Device biometric or PIN — baseline auth' },
+  { id: 'AL2', name: 'Passkey',            assurance_level: 'AL2', description: 'FIDO2 passkey — strong bound credential' },
+  { id: 'AL3', name: 'Selfie Check',       assurance_level: 'AL3', description: 'Liveness selfie matched to account photo' },
+  { id: 'AL4', name: 'IDV',                assurance_level: 'AL4', description: 'Full identity document verification' },
 ];
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
@@ -84,13 +84,13 @@ const TABS = [
   },
   {
     name: 'Actions',
-    headers: ['id', 'name', 'tier', 'required_al', 'required_confidence'],
-    rows: ACTIONS.map(a => [a.id, a.name, a.tier, a.required_al, a.required_confidence]),
+    headers: ['id', 'name', 'tier', 'required_al', 'risk_ceiling'],
+    rows: ACTIONS.map(a => [a.id, a.name, a.tier, a.required_al, a.risk_ceiling]),
   },
   {
     name: 'Authenticators',
-    headers: ['id', 'name', 'assurance_level', 'confidence_level', 'description'],
-    rows: AUTHENTICATORS.map(a => [a.id, a.name, a.assurance_level, a.confidence_level, a.description]),
+    headers: ['id', 'name', 'assurance_level', 'description'],
+    rows: AUTHENTICATORS.map(a => [a.id, a.name, a.assurance_level, a.description]),
   },
   {
     name: 'ControlPanel',

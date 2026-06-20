@@ -13,7 +13,7 @@ try {
 
 const SCHEMA_FILES = {
     decisions:  'decisions.schema.json',
-    confidence: 'confidence.schema.json',
+    risk:       'risk.schema.json',
     idvRouting: 'idvRouting.schema.json',
 };
 
@@ -48,7 +48,18 @@ function validate(policyName, content) {
     const errors = ok ? [] : (compiled[policyName].errors || []).map(
         e => `${e.instancePath || '(root)'} ${e.message}`
     );
-    return { valid: !!ok, errors };
+    if (!ok) return { valid: false, errors };
+
+    // Semantic validation: composite weights must sum to 100
+    if (policyName === 'risk' && content.compositeRisk && content.compositeRisk.weights) {
+        const w = content.compositeRisk.weights;
+        const sum = (w.customer ?? 0) + (w.device ?? 0) + (w.behavioural ?? 0) + (w.network ?? 0) + (w.velocity ?? 0);
+        if (Math.abs(sum - 100) > 0.01) {
+            return { valid: false, errors: [`compositeRisk.weights must sum to 100 (got ${sum})`] };
+        }
+    }
+
+    return { valid: true, errors: [] };
 }
 
 module.exports = { validate };
