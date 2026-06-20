@@ -33,13 +33,21 @@ Every `POST /trust/decision` request goes through this pipeline:
 
 ```
 request
-  → confidenceEngine   compute risk level + effective confidence from fraud/device scores
+  → riskEngine         compute compositeRisk (5 components) + riskLevel band
   → policyEngine       evaluate ordered rules → ALLOW / STEP_UP / DENY / MANUAL_REVIEW
   → idvRouting         if step_up_type=IDV, select vendor via routing strategy
   → analytics          log decision to ring buffer + decisions.jsonl
 ```
 
-All risk thresholds, confidence formulas, and decision rules live in `policies/*.json` — no code changes needed to adjust behaviour.
+All composite-risk weights, risk bands, and decision rules live in `policies/*.json` — no code changes needed to adjust behaviour.
+
+### Composite risk (v4 model)
+
+```
+compositeRisk = (customerRisk×40 + deviceRisk×25 + behaviouralRisk×15 + networkRisk×15 + velocityRisk×5) / 100
+```
+
+Risk bands on compositeRisk: **LOW** ≤35 / **MEDIUM** 36–64 / **HIGH** ≥65. Enrichment signals (VPN, proxy, breach, new device, IP abuse) feed `networkRisk` additively — they don't mutate fraud/device scores. Hard gates (Tor, GreyNoise bot, velocity burst) fire before scoring.
 
 ### Auth Assurance Levels
 
@@ -55,7 +63,7 @@ Step-up challenges escalate through this hierarchy based on the action tier and 
 | `GET` | `/analytics` | Aggregated decision stats. Optional `?customer_id=` filter |
 | `GET` | `/decisions` | Paginated decision log. Params: `limit`, `offset`, `customer_id`, `decision` |
 | `DELETE` | `/analytics` | Clear in-memory ring buffer |
-| `GET/PATCH` | `/policies/confidence` | Confidence policy |
+| `GET/PATCH` | `/policies/risk` | Risk policy: composite weights, network sub-weights, risk bands, AL requirements |
 | `GET/PATCH` | `/policies/decisions` | Decision rules |
 | `GET/PATCH` | `/policies/idvRouting` | IDV vendor routing |
 | `POST` | `/policies/velocity-toggle` | Toggle velocity rules. Body: `{ "enabled": true\|false }` |
@@ -85,15 +93,18 @@ The generator appends to `decisions.jsonl` alongside real decisions, so you can 
 ## Project structure
 
 ```
-policies/               risk rules and confidence config (edit these to change behaviour)
+policies/               risk weights, bands, and decision rules (edit these to change behaviour)
+  risk.json             compositeRisk weights + networkRisk sub-weights + risk bands
+  decisions.json        ordered decision rules (ALLOW / STEP_UP / DENY / MANUAL_REVIEW)
+  idvRouting.json       IDV vendor routing strategies
 data/                   local JSON data store (users, devices, actions, authenticators)
-adapters/               thin wrappers over data/store.js — extension points for external APIs
+adapters/               enrichment adapters (IP, AbuseIPDB, HIBP, GreyNoise)
 scripts/                utility scripts
   generate-traffic.js   seed decisions.jsonl with synthetic traffic for simulation
 public/index.html       single-page frontend (5 tabs incl. Policy Lab)
 server.js               Express app + route handlers
 decisionEngine.js       pipeline orchestrator
-confidenceEngine.js     risk level + confidence calculation
+riskEngine.js           compositeRisk calculation (5 components) + riskLevel bands
 policyEngine.js         rule evaluation + validation
 simulationEngine.js     policy simulation against decision history
 copilot.js              AI policy copilot (NL → rule → simulation)
