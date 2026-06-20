@@ -137,9 +137,11 @@ function computeRiskContext(signals) {
     const requiredAL = actionInfo && actionInfo.required_al != null
         ? actionInfo.required_al
         : (actionTier && tierAL[actionTier]) || null;
+    // Resolve currentAL: prefer store lookup (by authenticator id like 'PASSKEY'),
+    // fall back to direct AL string (like 'AL2') when the caller passes it directly.
     const currentAL = authenticatorInfo && authenticatorInfo.assurance_level != null
         ? authenticatorInfo.assurance_level
-        : null;
+        : (currentAuthLevel && AL_ORDER.includes(currentAuthLevel) ? currentAuthLevel : null);
     const alMeets       = alMeetsRequired(currentAL, requiredAL);
     const currentALIndex = currentAL != null ? AL_ORDER.indexOf(currentAL) : -1;
     // True when current AL already satisfies the next level above required (AL_PLUS_1)
