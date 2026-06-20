@@ -34,6 +34,7 @@
               "actionTier":             { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
               "requiredAL":             { "type": "string" },
               "alMeetsRequired":        { "type": "boolean" },
+              "alMeetsNextLevel":       { "type": "boolean" },
               "risk_ceiling_breached":  { "type": "boolean" },
               "currentAuthLevelLessThan": { "type": "string" },
               "velocity_1m_gt":         { "type": "number", "minimum": 0 },
