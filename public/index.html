@@ -1826,7 +1826,7 @@ function startSSE(){
   if(_sse) _sse.close();
   const dot=document.getElementById('sse-dot'), lbl=document.getElementById('sse-lbl');
   try{
-    _sse=new EventSource('/trust/stream');
+    _sse=new EventSource('/events/stream');
     _sse.onopen=()=>{ dot?.classList.add('on'); if(lbl) lbl.textContent='Live'; };
     _sse.onmessage=ev=>onSSE(ev);
     _sse.onerror=()=>{ dot?.classList.remove('on'); if(lbl) lbl.textContent='Reconnecting…'; setTimeout(startSSE,5000); };
