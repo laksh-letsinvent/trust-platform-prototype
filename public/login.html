@@ -266,6 +266,47 @@
         <div id="passkey-msg"></div>
       </div>
 
+      <!-- ── Step: set PIN backup ────────────────────────────────── -->
+      <div class="step" id="step-pin">
+        <div>
+          <div class="kicker" style="margin-bottom:6px">Optional</div>
+          <div class="step-title">Set a PIN backup</div>
+          <div class="step-sub" style="margin-top:6px">
+            A PIN lets you access read-only views when your passkey isn't available.
+            It won't unlock Control or Policy Lab — those require your passkey.
+          </div>
+        </div>
+
+        <div class="notice warn" style="font-size:12.5px">
+          <span class="notice-label">Access levels</span>
+          PIN → AL1 · Home, Atlas, Monitor, Analytics, Review<br>
+          Passkey → AL2 · everything including Control &amp; Policy Lab
+        </div>
+
+        <div class="field">
+          <div class="fl">PIN (4–8 digits)</div>
+          <div class="input">
+            <input type="password" id="pin-input" placeholder="Enter PIN"
+              inputmode="numeric" maxlength="8"
+              onkeydown="if(event.key==='Enter') setupPin()" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="fl">Confirm PIN</div>
+          <div class="input">
+            <input type="password" id="pin-confirm-input" placeholder="Confirm PIN"
+              inputmode="numeric" maxlength="8"
+              onkeydown="if(event.key==='Enter') setupPin()" />
+          </div>
+        </div>
+
+        <button class="btn primary btn-full" id="pin-btn" onclick="setupPin()">Set PIN</button>
+        <button class="btn ghost btn-full" onclick="location.href='/'">Skip for now</button>
+
+        <div id="pin-msg"></div>
+      </div>
+
       <!-- ── Step: register passkey ───────────────────────────── -->
       <div class="step" id="step-register">
         <div>
@@ -400,7 +441,7 @@
           body: JSON.stringify(credToJSON(cred)),
         }).then(r => r.json());
 
-        if (result.ok) { location.href = '/'; }
+        if (result.ok) { showStep('pin'); }
         else { setMsg('register-msg', result.error || 'Registration failed.'); }
       } catch (err) {
         setMsg('register-msg', err.name === 'NotAllowedError' ? 'Passkey creation was cancelled.' : (err.message || 'Registration failed.'));
@@ -476,6 +517,34 @@
         }
       } catch {
         setMsg('passkey-msg', 'Sign-in failed.');
+      }
+    }
+
+    // ── PIN setup ──────────────────────────────────────────────────────────────
+    async function setupPin() {
+      const pin     = document.getElementById('pin-input').value;
+      const confirm = document.getElementById('pin-confirm-input').value;
+      if (!pin) { setMsg('pin-msg', 'Enter a PIN.'); return; }
+      if (!/^\d{4,8}$/.test(pin)) { setMsg('pin-msg', 'PIN must be 4–8 digits.'); return; }
+      if (pin !== confirm) { setMsg('pin-msg', 'PINs do not match.'); return; }
+
+      const btn = document.getElementById('pin-btn');
+      btn.disabled = true;
+      setMsg('pin-msg', '');
+
+      try {
+        const result = await fetch('/auth/passcode/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passcode: pin }),
+        }).then(r => r.json());
+
+        if (result.ok) { location.href = '/'; }
+        else { setMsg('pin-msg', result.error || 'Failed to set PIN.'); }
+      } catch {
+        setMsg('pin-msg', 'Failed to set PIN.');
+      } finally {
+        btn.disabled = false;
       }
     }
 
