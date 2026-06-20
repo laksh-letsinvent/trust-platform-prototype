@@ -142,6 +142,10 @@ function computeRiskContext(signals) {
         : null;
     const alMeets       = alMeetsRequired(currentAL, requiredAL);
     const currentALIndex = currentAL != null ? AL_ORDER.indexOf(currentAL) : -1;
+    // True when current AL already satisfies the next level above required (AL_PLUS_1)
+    const requiredALIndex = requiredAL != null ? AL_ORDER.indexOf(requiredAL) : -1;
+    const nextLevelIndex  = requiredALIndex >= 0 ? Math.min(requiredALIndex + 1, AL_ORDER.length - 1) : -1;
+    const alMeetsNextLevel = nextLevelIndex >= 0 && currentALIndex >= nextLevelIndex;
 
     // Risk ceiling: compositeRisk > action.risk_ceiling
     const riskCeiling         = actionInfo?.risk_ceiling ?? null;
@@ -169,7 +173,8 @@ function computeRiskContext(signals) {
             requiredAL,
             currentAL,
             currentALIndex,
-            alMeetsRequired: alMeets
+            alMeetsRequired: alMeets,
+            alMeetsNextLevel
         },
         riskCeiling: { ceiling: riskCeiling, compositeRisk, breached: risk_ceiling_breached }
     };
@@ -187,6 +192,7 @@ function computeRiskContext(signals) {
         currentAL,
         currentALIndex,
         alMeetsRequired: alMeets,
+        alMeetsNextLevel,
         currentAuthLevel: currentAuthLevel ?? null,
         risk_ceiling_breached,
         velocity: velocitySignals,

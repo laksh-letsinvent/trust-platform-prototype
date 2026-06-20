@@ -68,6 +68,8 @@ function matchesCondition(condition, context) {
         return false;
     if (condition.alMeetsRequired != null && context.alMeetsRequired !== condition.alMeetsRequired)
         return false;
+    if (condition.alMeetsNextLevel != null && (context.alMeetsNextLevel || false) !== condition.alMeetsNextLevel)
+        return false;
 
     // Checks if current auth AL index is strictly less than the named level
     if (condition.currentAuthLevelLessThan != null) {
@@ -125,6 +127,7 @@ function conditionToSummary(condition) {
     }
     if (condition.requiredAL != null) parts.push(`requiredAL = ${condition.requiredAL}`);
     if (condition.alMeetsRequired != null) parts.push(`alMeetsRequired = ${condition.alMeetsRequired}`);
+    if (condition.alMeetsNextLevel != null) parts.push(`alMeetsNextLevel = ${condition.alMeetsNextLevel}`);
     if (condition.currentAuthLevelLessThan != null) parts.push(`currentAuthLevel < ${condition.currentAuthLevelLessThan}`);
     if (condition.velocity_1m_gt != null) parts.push(`velocity_1m > ${condition.velocity_1m_gt}`);
     if (condition.velocity_5m_gt != null) parts.push(`velocity_5m > ${condition.velocity_5m_gt}`);
@@ -165,6 +168,7 @@ function explainCondition(condition, context) {
     }
     if (condition.requiredAL != null && !check(`requiredAL === ${condition.requiredAL}`, context.requiredAL === condition.requiredAL, context.requiredAL)) return steps;
     if (condition.alMeetsRequired != null && !check(`alMeetsRequired === ${condition.alMeetsRequired}`, context.alMeetsRequired === condition.alMeetsRequired, context.alMeetsRequired)) return steps;
+    if (condition.alMeetsNextLevel != null && !check(`alMeetsNextLevel === ${condition.alMeetsNextLevel}`, (context.alMeetsNextLevel || false) === condition.alMeetsNextLevel, context.alMeetsNextLevel || false)) return steps;
 
     if (condition.currentAuthLevelLessThan != null) {
         const threshold = AL_ORDER.indexOf(condition.currentAuthLevelLessThan);
@@ -287,7 +291,7 @@ function evaluateWith(config, context) {
 const VALID_DECISIONS = ['ALLOW', 'STEP_UP', 'DENY', 'MANUAL_REVIEW'];
 const VALID_STEP_UP_TYPES = ['PASSCODE', 'PASSKEY', 'SELFIE', 'IDV', 'AL_PLUS_1', 'REQUIRED_AL'];
 const VALID_CONDITION_KEYS = [
-    'riskLevel', 'geography', 'actionTier', 'requiredAL', 'alMeetsRequired',
+    'riskLevel', 'geography', 'actionTier', 'requiredAL', 'alMeetsRequired', 'alMeetsNextLevel',
     'risk_ceiling_breached', 'currentAuthLevelLessThan',
     'velocity_1m_gt', 'velocity_5m_gt', 'velocity_15m_gt',
     // Intelligence enrichment gate conditions

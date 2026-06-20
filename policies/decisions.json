@@ -99,15 +99,28 @@
     {
       "id": "step_up_high_risk_al_met",
       "enabled": true,
-      "description": "Step-up: high composite risk even when assurance is met — enforce extra factor",
+      "description": "Step-up: high composite risk even when assurance is met — enforce extra factor, only if user hasn't already provided it",
       "condition": {
         "riskLevel": "HIGH",
-        "alMeetsRequired": true
+        "alMeetsRequired": true,
+        "alMeetsNextLevel": false
       },
       "decision": "STEP_UP",
       "step_up_type": "AL_PLUS_1",
       "reason": "High risk profile requires additional authentication beyond the required level.",
       "display_message": "For your security, an extra verification step is required."
+    },
+    {
+      "id": "allow_medium_risk",
+      "enabled": true,
+      "description": "Allow: medium composite risk and assurance level met",
+      "condition": {
+        "riskLevel": "MEDIUM",
+        "alMeetsRequired": true
+      },
+      "decision": "ALLOW",
+      "reason": "Medium composite risk and authentication sufficient for this action.",
+      "display_message": "You're good to go."
     },
     {
       "id": "allow_low_risk",
