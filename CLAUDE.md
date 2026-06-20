@@ -106,6 +106,25 @@ POST /trust/decision
 
 `AL1` (passcode/FaceID) < `AL2` (passkey) < `AL3` (selfie) < `AL4` (IDV). Mapped to step-up types: `AL1→PASSCODE`, `AL2→PASSKEY`, `AL3→SELFIE`, `AL4→IDV`.
 
+### WebAuthn / passkey auth system
+
+Passkey authentication uses `@simplewebauthn/server`. All auth endpoints live at `/auth/*` via `auth/router.js`. Key modules:
+
+- **`auth/router.js`** — Magic link request/verify, WebAuthn register start/finish, WebAuthn login start/finish, passcode set/login, logout. Every login runs `getDecision()` before issuing a session.
+- **`auth/credentialStore.js`** — File-backed store over `data/credentials.json` (gitignored). Stores passkey public keys, bcrypt passcode hashes, and magic link token hashes.
+- **`auth/challengeStore.js`** — In-memory Map with 5-min TTL for WebAuthn challenges, keyed by email.
+- **`middleware/session.js`** — `requireSession` (verifies `sig_session` JWT), `requireAL(level)` factory, `issueSessionCookie`, `clearSessionCookie`.
+
+**Cookies:** `sig_session` (24h JWT, httpOnly), `sig_enroll` (10min JWT, gates registration), `sig_device` (365d UUID, httpOnly=false).
+
+**Registration flow:** Email → magic link (SHA256-hashed token, 15min TTL) → `sig_enroll` cookie → WebAuthn register → session at AL2 → optional PIN setup.
+
+**Login flow:** Email → check `/auth/user-info` → if has_passkey: WebAuthn login → trust decision → session at AL2. If no passkey: send magic link (same as registration). PIN login gives AL1.
+
+**AL2 uplift from AL1:** Control and Policy Lab show an inline passkey prompt (`upgradeToAL2()` in `index.html`). On success, the server re-issues the session at AL2 and the page reloads — no redirect to login.
+
+**`riskEngine.js` note:** `currentAL` resolution falls back from authenticator store lookup to the raw AL string passed by the caller (e.g. `'AL2'`), since auth router passes AL strings directly rather than authenticator IDs like `'PASSKEY'`.
+
 ### Caching (`cache.js`)
 
 Redis-backed, no-op when Redis is unavailable. Caches fraud scores (key: `fraud:{customerId}:{action}:{deviceId}`) and device scores (key: `device:{deviceId}`). TTLs default to env vars but are **runtime-adjustable** via `PATCH /cache/config` — changes take effect immediately for new cache writes. The same Redis client is shared with `velocityEngine.js` for sorted-set velocity tracking.

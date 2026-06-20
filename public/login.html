@@ -261,7 +261,8 @@
         </div>
 
         <div class="sep">or</div>
-        <button class="btn ghost btn-full" onclick="showStep('email')">Use a different account</button>
+        <button class="btn ghost btn-full" onclick="sendMagicLinkFallback()">Send a magic link instead</button>
+        <button class="btn ghost btn-full" style="font-size:12.5px;color:var(--ink-faint)" onclick="showStep('email')">Use a different account</button>
 
         <div id="passkey-msg"></div>
       </div>
@@ -548,6 +549,28 @@
         setMsg('pin-msg', 'Failed to set PIN.');
       } finally {
         btn.disabled = false;
+      }
+    }
+
+    // ── Magic link fallback from passkey step ─────────────────────────────────
+    async function sendMagicLinkFallback() {
+      const email = _currentEmail;
+      if (!email) { showStep('email'); return; }
+      setMsg('passkey-msg', '');
+      try {
+        const body = await fetch('/auth/magic-link/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).then(r => r.json());
+
+        if (body.dev_link) {
+          setMsg('passkey-msg', `<span class="notice-label">Dev mode — no SMTP</span><a href="${esc(body.dev_link)}">${esc(body.dev_link)}</a>`, 'warn');
+        } else {
+          setMsg('passkey-msg', 'Magic link sent — check your inbox.', 'ok');
+        }
+      } catch {
+        setMsg('passkey-msg', 'Something went wrong.');
       }
     }
 

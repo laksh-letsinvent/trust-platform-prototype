@@ -351,6 +351,7 @@
             <a class="atlas-nav-link" onclick="showArticle('publishing')">Publishing</a>
 
             <div class="atlas-sidenav-section">System</div>
+            <a class="atlas-nav-link" onclick="showArticle('passkeys')">Passkeys &amp; auth</a>
             <a class="atlas-nav-link" onclick="showArticle('synthetic-traffic')">Synthetic traffic</a>
             <a class="atlas-nav-link" onclick="showArticle('architecture')">Architecture</a>
           </nav>
@@ -885,6 +886,98 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
             </article>
 
             <!-- Article: architecture -->
+            <article class="atlas-article" id="atlas-article-passkeys">
+              <div class="atlas-section-kicker">System</div>
+              <h1 class="atlas-title">Passkeys &amp; authentication</h1>
+              <p class="atlas-lead">Signal uses WebAuthn (FIDO2) passkeys as the primary credential — no password ever leaves the device. A PIN backup provides AL1 read-only access when the passkey device isn't available. Every login runs through the trust decision engine before a session is issued.</p>
+
+              <h2 id="pk-why" class="atlas-h2">Why passkeys instead of passwords</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">A passkey is a public/private key pair generated on the user's device. The private key never leaves the device — not even to Signal's server. At login, the device signs a server-issued challenge with the private key; the server verifies the signature against the stored public key. There is no password to phish, no hash to breach, and no credential to replay.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:baseline"><span class="minichip">Phishing-resistant</span><span class="soft">Origin is bound into the credential — a spoofed domain gets a different credential ID and signature verification fails.</span></div>
+                <div style="display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:baseline"><span class="minichip">Device-bound</span><span class="soft">Private key is stored in the device's secure enclave (TouchID / FaceID / Windows Hello / Android biometrics). Syncs via iCloud Keychain or Google Password Manager.</span></div>
+                <div style="display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:baseline"><span class="minichip">No shared secret</span><span class="soft">Server only stores the public key. A breach of the credential store exposes nothing exploitable.</span></div>
+                <div style="display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:baseline"><span class="minichip">Standard</span><span class="soft">W3C WebAuthn Level 2 + FIDO2. Implemented via @simplewebauthn/server on the Node side and the browser's <span class="mono">PublicKeyCredential</span> API on the client.</span></div>
+              </div>
+
+              <h2 id="pk-registration" class="atlas-h2">Registration flow</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">First-time users prove ownership of their email via a magic link. The link sets a short-lived <span class="mono">sig_enroll</span> cookie that gates the WebAuthn registration endpoints.</p>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:20px">
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">1.</span><span class="soft"><strong>Email entered</strong> → POST <span class="mono">/auth/magic-link/request</span>. Server generates a 32-byte random token, SHA-256 hashes it, stores hash + 15-min expiry in <span class="mono">data/credentials.json</span>. Raw token goes into the link; never stored.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">2.</span><span class="soft"><strong>User clicks link</strong> → GET <span class="mono">/auth/magic-link/verify</span>. Server re-hashes token, compares to stored hash, checks expiry. On match: clears token, sets 10-min <span class="mono">sig_enroll</span> JWT cookie, redirects to <span class="mono">/login?step=register</span>.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">3.</span><span class="soft"><strong>Passkey creation</strong> → POST <span class="mono">/auth/webauthn/register/start</span>. Server calls <span class="mono">generateRegistrationOptions()</span>, stores challenge in memory (5-min TTL), returns options JSON to browser.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">4.</span><span class="soft"><strong>Device prompts biometrics.</strong> Browser generates key pair in secure enclave, returns signed attestation to POST <span class="mono">/auth/webauthn/register/finish</span>.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">5.</span><span class="soft"><strong>Server verifies attestation</strong> via <span class="mono">verifyRegistrationResponse()</span>. Stores <span class="mono">{ id, publicKey (base64), counter, transports }</span> in <span class="mono">credentials.json</span>. Issues <span class="mono">sig_session</span> JWT at AL2. Clears <span class="mono">sig_enroll</span> cookie.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">6.</span><span class="soft"><strong>PIN setup offered.</strong> User can optionally set a 4–8 digit PIN (stored as bcrypt hash) before entering the app.</span></div>
+              </div>
+
+              <h2 id="pk-login" class="atlas-h2">Login flow</h2>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:20px">
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">1.</span><span class="soft"><strong>Email entered</strong> → GET <span class="mono">/auth/user-info</span>. Returns <span class="mono">{ has_passkey, has_passcode }</span>. If passkey registered: go to passkey step. If not: send magic link (same as registration).</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">2.</span><span class="soft"><strong>Challenge issued</strong> → POST <span class="mono">/auth/webauthn/login/start</span>. Server builds <span class="mono">allowCredentials</span> from stored passkeys for this email, calls <span class="mono">generateAuthenticationOptions()</span>, stores challenge.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">3.</span><span class="soft"><strong>Device signs challenge.</strong> Browser shows biometric prompt, signs with stored private key, returns assertion to POST <span class="mono">/auth/webauthn/login/finish</span>.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">4.</span><span class="soft"><strong>Server verifies signature</strong> via <span class="mono">verifyAuthenticationResponse()</span>. Checks counter hasn't regressed (replay protection). Updates counter in store.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">5.</span><span class="soft"><strong>Trust decision.</strong> <span class="mono">getDecision()</span> is called with <span class="mono">current_auth_level: 'AL2'</span>. On ALLOW/FRICTIONLESS: session issued. On STEP_UP/DENY: login blocked.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px;padding-top:1px">6.</span><span class="soft"><strong>Session cookie set.</strong> <span class="mono">sig_session</span> JWT (24h, httpOnly, sameSite=strict) with <span class="mono">{ customer_id, email, achieved_al: 'AL2', device_id }</span>.</span></div>
+              </div>
+
+              <h2 id="pk-pin" class="atlas-h2">PIN backup (AL1)</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 10px">The PIN is a secondary factor for when the passkey device isn't available. It deliberately gives fewer privileges.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip">Set</span><span class="soft">POST <span class="mono">/auth/passcode/set</span> — requires active AL2 session. Stored as bcrypt hash (cost 10) in <span class="mono">credentials.json</span>.</span></div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip">Login</span><span class="soft">POST <span class="mono">/auth/passcode/login</span>. bcrypt.compare against stored hash. Also runs trust decision with <span class="mono">current_auth_level: 'AL1'</span>. Issues session at AL1.</span></div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip">AL1 access</span><span class="soft">Home, Atlas, Monitor, Analytics, Review Queue — all read-only surfaces.</span></div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip">AL2 locked</span><span class="soft">Control Panel and Policy Lab show an in-page passkey challenge. On success the session is re-issued at AL2 and the page reloads — no redirect.</span></div>
+              </div>
+
+              <h2 id="pk-session" class="atlas-h2">Cookies &amp; sessions</h2>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip mono" style="font-size:11px">sig_session</span><span class="soft">24h JWT. httpOnly, sameSite=strict. Contains <span class="mono">customer_id</span>, <span class="mono">email</span>, <span class="mono">achieved_al</span>, <span class="mono">device_id</span>. Checked on every protected route. Verified by <span class="mono">middleware/session.js</span>.</span></div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip mono" style="font-size:11px">sig_enroll</span><span class="soft">10-min JWT. httpOnly, sameSite=strict. Set after magic link verification; cleared after passkey registration completes. Gates <span class="mono">/auth/webauthn/register/*</span>.</span></div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:baseline"><span class="minichip mono" style="font-size:11px">sig_device</span><span class="soft">365-day UUIDv4. httpOnly=false (intentional — FingerprintJS also reads it). Used as stable device identifier fed to the trust decision engine. Set on login and passkey registration.</span></div>
+              </div>
+
+              <h2 id="pk-credentials" class="atlas-h2">Credential store</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 10px"><span class="mono">data/credentials.json</span> — file-backed, gitignored. Managed by <span class="mono">auth/credentialStore.js</span>. Structure:</p>
+              <div style="background:var(--bg);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:14px 16px;font-family:var(--mono);font-size:12px;color:var(--ink-soft);line-height:1.7;margin-bottom:20px;overflow-x:auto">
+                <div><span style="color:var(--ink-faint)">{</span> <span style="color:var(--allow)">"users"</span><span style="color:var(--ink-faint)">: {</span></div>
+                <div style="margin-left:16px"><span style="color:var(--allow)">"user@example.com"</span><span style="color:var(--ink-faint)">: {</span></div>
+                <div style="margin-left:32px"><span style="color:var(--accent)">"customer_id"</span><span style="color:var(--ink-faint)">: "user",</span></div>
+                <div style="margin-left:32px"><span style="color:var(--accent)">"passkeys"</span><span style="color:var(--ink-faint)">: [{ </span><span style="color:var(--accent)">"id"</span><span style="color:var(--ink-faint)">, </span><span style="color:var(--accent)">"publicKey"</span><span style="color:var(--ink-faint)">, </span><span style="color:var(--accent)">"counter"</span><span style="color:var(--ink-faint)">, </span><span style="color:var(--accent)">"transports"</span><span style="color:var(--ink-faint)"> }],</span></div>
+                <div style="margin-left:32px"><span style="color:var(--accent)">"passcode_hash"</span><span style="color:var(--ink-faint)">: "$2b$10$…",  </span><span style="color:var(--ink-faint)">// bcrypt, optional</span></div>
+                <div style="margin-left:32px"><span style="color:var(--accent)">"magic_token_hash"</span><span style="color:var(--ink-faint)">: "sha256…",  </span><span style="color:var(--ink-faint)">// cleared on use</span></div>
+                <div style="margin-left:32px"><span style="color:var(--accent)">"magic_token_expires"</span><span style="color:var(--ink-faint)">: 1718900000000</span></div>
+                <div style="margin-left:16px"><span style="color:var(--ink-faint)">}</span></div>
+                <div><span style="color:var(--ink-faint)">} }</span></div>
+              </div>
+
+              <h2 id="pk-files" class="atlas-h2">Key files</h2>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:baseline"><span class="mono" style="font-size:12px;color:var(--ink)">auth/router.js</span><span class="soft">All /auth/* endpoints. Magic link request/verify, WebAuthn register/login, passcode set/login, logout.</span></div>
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:baseline"><span class="mono" style="font-size:12px;color:var(--ink)">auth/credentialStore.js</span><span class="soft">File-backed CRUD over credentials.json. getByEmail, addPasskey, getPasskeyById, updateCounter, setPasscodeHash, setMagicToken.</span></div>
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:baseline"><span class="mono" style="font-size:12px;color:var(--ink)">auth/challengeStore.js</span><span class="soft">In-memory Map. Stores WebAuthn challenges keyed by email, with 5-min auto-expiry GC.</span></div>
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:baseline"><span class="mono" style="font-size:12px;color:var(--ink)">middleware/session.js</span><span class="soft">requireSession (verifies sig_session JWT, attaches req.user), requireAL(level) factory, issueSessionCookie, clearSessionCookie.</span></div>
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:10px;align-items:baseline"><span class="mono" style="font-size:12px;color:var(--ink)">public/login.html</span><span class="soft">4-step state machine: email → passkey login → register passkey → PIN setup. Mode switcher on passkey step sends a magic link without leaving the page.</span></div>
+              </div>
+
+              <h2 id="pk-uplift" class="atlas-h2">In-page AL2 uplift</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">Control Panel and Policy Lab require AL2. When an AL1 (PIN) session tries to access them, the tab surface is replaced with a "Verify with passkey" prompt — no redirect to the login page. The <span class="mono">upgradeToAL2()</span> function in <span class="mono">index.html</span> runs the full WebAuthn authentication inline, calls <span class="mono">/auth/webauthn/login/finish</span>, and on success triggers a page reload. The server re-issues the session cookie at AL2 in the same request, so the reload sees full access immediately.</p>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:20px">
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px">1.</span><span class="soft"><span class="mono">checkSession()</span> stores email in <span class="mono">_sessionEmail</span>, calls <span class="mono">lockAL2Tabs()</span> when AL1.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px">2.</span><span class="soft">Lock panel renders inline — button calls <span class="mono">upgradeToAL2(tabId)</span>.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px">3.</span><span class="soft">WebAuthn challenge → device biometric → <span class="mono">/auth/webauthn/login/finish</span>.</span></div>
+                <div style="display:flex;gap:10px"><span class="mono faint" style="min-width:20px">4.</span><span class="soft">On <span class="mono">result.ok</span>: <span class="mono">location.reload()</span>. New session cookie at AL2 is in place; tabs unlock on next <span class="mono">checkSession()</span> call.</span></div>
+              </div>
+
+              <h2 id="pk-where" class="atlas-h2">Where this appears</h2>
+              <div class="atlas-where">
+                <span class="atlas-where-chip" onclick="showTab('home')"><span class="d2" style="background:var(--ink-soft)"></span>Home — user chip + AL badge</span>
+                <span class="atlas-where-chip" onclick="location.href='/login'"><span class="d2" style="background:var(--accent)"></span>Login page — all steps</span>
+                <span class="atlas-where-chip" onclick="showTab('control')"><span class="d2" style="background:var(--review)"></span>Control — AL2 lock panel</span>
+                <span class="atlas-where-chip" onclick="showTab('policylab')"><span class="d2" style="background:var(--review)"></span>Policy Lab — AL2 lock panel</span>
+              </div>
+            </article>
+
             <article class="atlas-article" id="atlas-article-architecture">
               <div class="atlas-section-kicker">System</div>
               <h1 class="atlas-title">Architecture</h1>
@@ -1742,6 +1835,7 @@ const _atlasToc={
   'publishing':[['pub-flow','The publish flow'],['pub-ab','A/B experiments'],['pub-versioning','Versioning & rollback'],['pub-where','Where this appears']],
   'velocity':[['vel-windows','Sliding windows'],['vel-rules','How rules fire'],['vel-ats','Velocity and ambient trust'],['vel-where','Where this appears']],
   'synthetic-traffic':[['syn-daemon','Traffic daemon'],['syn-personas','6 persona archetypes'],['syn-attacks','3 attack scenarios'],['syn-where','Where this appears']],
+  'passkeys':[['pk-why','Why passkeys'],['pk-registration','Registration flow'],['pk-login','Login flow'],['pk-pin','PIN backup (AL1)'],['pk-session','Cookies & sessions'],['pk-credentials','Credential store'],['pk-files','Key files'],['pk-uplift','In-page AL2 uplift'],['pk-where','Where this appears']],
   'architecture':[['arch-diagram','E2E system diagram'],['arch-stack','Dependency tolerance'],['arch-health','Live health'],['arch-where','Where this appears']],
 };
 const _atlasRelated={
@@ -1759,7 +1853,8 @@ const _atlasRelated={
   'publishing':[['rules','Rules & primitives']],
   'velocity':[['deny-review','Deny & review'],['ambient-trust','Ambient trust'],['synthetic-traffic','Synthetic traffic']],
   'synthetic-traffic':[['lifecycle','Decision lifecycle'],['velocity','Velocity'],['deny-review','Deny & review']],
-  'architecture':[['risk-signals','Risk signals'],['velocity','Velocity']],
+  'passkeys':[['auth-levels','Auth levels'],['step-up','Step-up logic'],['architecture','Architecture']],
+  'architecture':[['passkeys','Passkeys & auth'],['risk-signals','Risk signals'],['velocity','Velocity']],
 };
 
 function showArticle(id){
