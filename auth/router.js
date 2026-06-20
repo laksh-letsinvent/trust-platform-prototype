@@ -321,7 +321,7 @@ router.post('/webauthn/login/finish', async (req, res) => {
         email,
     });
 
-    if (result.decision === 'ALLOW') {
+    if (result.decision === 'ALLOW' || result.decision === 'FRICTIONLESS') {
         await store.addKnownDevice(customer_id, deviceId);
         issueSessionCookie(res, { customer_id, email, achieved_al: 'AL2', device_id: deviceId });
         return res.json({ ok: true, customer_id, achieved_al: 'AL2' });
@@ -329,7 +329,10 @@ router.post('/webauthn/login/finish', async (req, res) => {
     if (result.decision === 'STEP_UP') {
         return res.status(403).json({ decision: 'STEP_UP', step_up_type: result.step_up_type });
     }
-    return res.status(403).json({ decision: 'DENY', rule_id: result.rule_id });
+    if (result.decision === 'MANUAL_REVIEW') {
+        return res.status(403).json({ decision: 'MANUAL_REVIEW', reason: result.reason });
+    }
+    return res.status(403).json({ decision: 'DENY', rule_id: result.ruleId, reason: result.reason });
 });
 
 // ── POST /auth/passcode/set ───────────────────────────────────────────────────
@@ -368,14 +371,17 @@ router.post('/passcode/login', async (req, res) => {
         email,
     });
 
-    if (result.decision === 'ALLOW') {
+    if (result.decision === 'ALLOW' || result.decision === 'FRICTIONLESS') {
         issueSessionCookie(res, { customer_id, email, achieved_al: 'AL1', device_id: deviceId });
         return res.json({ ok: true, customer_id, achieved_al: 'AL1' });
     }
     if (result.decision === 'STEP_UP') {
         return res.status(403).json({ decision: 'STEP_UP', step_up_type: result.step_up_type });
     }
-    return res.status(403).json({ decision: 'DENY', rule_id: result.rule_id });
+    if (result.decision === 'MANUAL_REVIEW') {
+        return res.status(403).json({ decision: 'MANUAL_REVIEW', reason: result.reason });
+    }
+    return res.status(403).json({ decision: 'DENY', rule_id: result.ruleId, reason: result.reason });
 });
 
 // ── POST /auth/logout ─────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
   <title>Sign in · Signal Trust</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/signal.css" />
   <style>
     body {
@@ -15,213 +15,167 @@
       align-items: center;
       justify-content: center;
       background: var(--bg);
-      font-family: var(--font-sans);
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 16px;
     }
 
     .login-card {
-      width: 100%;
-      max-width: 400px;
-      padding: 40px 36px 36px;
       background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      padding: var(--s7) var(--s7) var(--s6);
+      box-shadow: var(--shadow);
     }
 
     .login-brand {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 32px;
+      margin-bottom: var(--s7);
     }
 
-    .login-brand-mark {
-      width: 32px;
-      height: 32px;
+    .login-brand .glyph {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
       background: var(--accent);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      color: var(--accent-ink);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
       font-size: 16px;
-      font-weight: 700;
-      color: #fff;
       flex-shrink: 0;
     }
 
-    .login-brand-name {
-      font-size: 17px;
-      font-weight: 600;
+    .login-brand-text {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
       color: var(--ink);
-      letter-spacing: -0.01em;
     }
 
     .login-brand-sub {
-      font-size: 11px;
-      color: var(--ink-soft);
-      font-family: var(--font-mono);
-      letter-spacing: 0.04em;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--ink-faint);
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .login-title {
+    .step { display: none; }
+    .step.active { display: flex; flex-direction: column; gap: var(--s5); }
+
+    .step-title {
       font-size: 20px;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: -0.025em;
       color: var(--ink);
-      margin: 0 0 6px;
+      line-height: 1.2;
     }
 
-    .login-sub {
-      font-size: 13px;
+    .step-sub {
+      font-size: 13.5px;
       color: var(--ink-soft);
-      margin: 0 0 28px;
-      line-height: 1.5;
+      line-height: 1.6;
+      margin-top: -12px;
     }
 
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--ink-soft);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .form-input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--ink);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-
-    .form-input:focus {
-      border-color: var(--accent);
-    }
-
-    .btn {
-      width: 100%;
-      padding: 11px 16px;
-      border-radius: var(--radius);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: opacity 0.15s;
-    }
-
-    .btn:disabled { opacity: 0.45; cursor: default; }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-    }
-
+    /* passkey button — accented variant */
     .btn-passkey {
-      background: transparent;
-      border: 1.5px solid var(--accent);
+      background: color-mix(in oklch, var(--accent) 12%, var(--bg-3));
+      border-color: color-mix(in oklch, var(--accent) 40%, var(--line));
       color: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      width: 100%;
+      padding: 13px 15px;
       font-size: 15px;
-      padding: 13px 16px;
+    }
+
+    .btn-passkey:hover {
+      background: color-mix(in oklch, var(--accent) 18%, var(--bg-3));
     }
 
     .btn-passkey svg {
-      width: 20px;
-      height: 20px;
+      width: 19px;
+      height: 19px;
       flex-shrink: 0;
     }
 
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--ink-soft);
-      margin-top: 10px;
+    .btn-full {
+      width: 100%;
     }
 
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 20px 0;
-      color: var(--ink-faint);
-      font-size: 12px;
-    }
-
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-
-    .dev-callout {
-      margin-top: 20px;
-      padding: 12px 14px;
-      background: rgba(212, 163, 69, 0.08);
-      border: 1px solid var(--review);
-      border-radius: var(--radius);
-      font-size: 12px;
-      color: var(--ink-soft);
+    .notice {
+      padding: var(--s3) var(--s4);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
       line-height: 1.6;
     }
 
-    .dev-callout a {
-      color: var(--review);
-      word-break: break-all;
+    .notice.warn {
+      background: color-mix(in oklch, var(--review) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--review) 35%, transparent);
+      color: var(--ink-soft);
     }
 
-    .dev-callout .dev-label {
-      font-family: var(--font-mono);
+    .notice.warn .notice-label {
+      font-family: var(--mono);
       font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
       color: var(--review);
-      font-weight: 600;
       display: block;
       margin-bottom: 4px;
     }
 
-    .error-msg {
-      margin-top: 14px;
-      padding: 10px 12px;
-      background: rgba(220, 80, 80, 0.08);
-      border: 1px solid var(--deny);
-      border-radius: var(--radius);
-      font-size: 13px;
+    .notice.warn a {
+      color: var(--review);
+      word-break: break-all;
+    }
+
+    .notice.err {
+      background: color-mix(in oklch, var(--deny) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--deny) 30%, transparent);
       color: var(--deny);
     }
 
-    .info-msg {
-      margin-top: 14px;
-      padding: 10px 12px;
-      background: rgba(72, 162, 109, 0.08);
-      border: 1px solid var(--allow);
-      border-radius: var(--radius);
-      font-size: 13px;
+    .notice.ok {
+      background: color-mix(in oklch, var(--allow) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--allow) 30%, transparent);
       color: var(--allow);
     }
 
-    .step { display: none; }
-    .step.active { display: block; }
+    .sep {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      color: var(--ink-faint);
+      font-size: 11.5px;
+      letter-spacing: 0.04em;
+    }
 
-    .passkey-hint {
-      margin-top: 14px;
+    .sep::before, .sep::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line-soft);
+    }
+
+    .email-display {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink-soft);
+      background: var(--bg);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius-ctl);
+      padding: 10px 13px;
+    }
+
+    .hint {
       font-size: 12px;
       color: var(--ink-faint);
       line-height: 1.6;
@@ -235,153 +189,173 @@
       font-size: 13px;
       cursor: pointer;
       padding: 0;
-      font-family: var(--font-sans);
-      text-decoration: underline;
+      font-family: var(--ui);
     }
 
-    .passcode-section {
-      display: none;
-      margin-top: 16px;
-    }
+    .link-btn:hover { text-decoration: underline; }
 
-    .passcode-section.visible {
-      display: block;
-    }
+    .passcode-block { display: flex; flex-direction: column; gap: var(--s4); }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="login-brand">
-      <div class="login-brand-mark">S</div>
-      <div>
-        <div class="login-brand-name">Signal Trust</div>
-        <div class="login-brand-sub">Platform</div>
-      </div>
-    </div>
+  <div class="login-wrap">
+    <div class="login-card">
 
-    <!-- Step 1: Email -->
-    <div class="step active" id="step-email">
-      <h1 class="login-title">Sign in</h1>
-      <p class="login-sub">Enter your email to receive a magic link or use your registered passkey.</p>
-
-      <div class="form-group">
-        <label class="form-label" for="email-input">Email address</label>
-        <input class="form-input" type="email" id="email-input" placeholder="you@example.com" autocomplete="email" />
-      </div>
-
-      <button class="btn btn-primary" id="magic-link-btn" onclick="requestMagicLink()">Send magic link</button>
-
-      <div id="email-msg"></div>
-    </div>
-
-    <!-- Step 2: Register passkey -->
-    <div class="step" id="step-register">
-      <h1 class="login-title">Register passkey</h1>
-      <p class="login-sub">Your device will prompt for biometrics or PIN. This creates a passkey — no password needed.</p>
-
-      <button class="btn btn-passkey" id="register-btn" onclick="registerPasskey()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <circle cx="12" cy="8" r="3.5"/>
-          <path d="M5 20c0-4 3-7 7-7s7 3 7 7"/>
-          <path d="M15 11l1.5 1.5L19 10"/>
-        </svg>
-        Create passkey
-      </button>
-
-      <p class="passkey-hint">Your passkey is stored securely on this device and synced via iCloud or Google Password Manager.</p>
-      <div id="register-msg"></div>
-    </div>
-
-    <!-- Step 3: Returning user -->
-    <div class="step" id="step-login">
-      <h1 class="login-title">Welcome back</h1>
-      <p class="login-sub" id="login-sub-text">Sign in with your passkey.</p>
-
-      <div class="form-group">
-        <label class="form-label" for="login-email-input">Email address</label>
-        <input class="form-input" type="email" id="login-email-input" placeholder="you@example.com" autocomplete="email" />
-      </div>
-
-      <button class="btn btn-passkey" id="passkey-login-btn" onclick="loginWithPasskey()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          <rect x="3" y="11" width="18" height="11" rx="2"/>
-          <circle cx="12" cy="16" r="1.5"/>
-        </svg>
-        Sign in with passkey
-      </button>
-
-      <div id="passcode-section" class="passcode-section">
-        <div class="divider">or</div>
-        <div class="form-group">
-          <label class="form-label" for="passcode-input">Passcode</label>
-          <input class="form-input" type="password" id="passcode-input" placeholder="4–8 digit PIN" inputmode="numeric" maxlength="8" />
+      <div class="login-brand">
+        <div class="glyph">S</div>
+        <div>
+          <div class="login-brand-text">Signal Trust</div>
+          <div class="login-brand-sub">Platform</div>
         </div>
-        <button class="btn btn-ghost" onclick="loginWithPasscode()">Sign in with passcode</button>
       </div>
 
-      <div class="divider">or</div>
-      <button class="btn btn-ghost" onclick="showStep('email')">Use a different account</button>
+      <!-- ── Step: email ──────────────────────────────────────── -->
+      <div class="step active" id="step-email">
+        <div>
+          <div class="step-title">Sign in</div>
+          <div class="step-sub" style="margin-top:6px">Enter your email to continue.</div>
+        </div>
 
-      <div id="login-msg"></div>
+        <div class="field">
+          <div class="fl">Email address</div>
+          <div class="input">
+            <input type="email" id="email-input" placeholder="you@example.com"
+              autocomplete="email" onkeydown="if(event.key==='Enter') continueWithEmail()" />
+          </div>
+        </div>
+
+        <button class="btn primary btn-full" id="continue-btn" onclick="continueWithEmail()">Continue</button>
+
+        <div id="email-msg"></div>
+      </div>
+
+      <!-- ── Step: passkey login ──────────────────────────────── -->
+      <div class="step" id="step-passkey">
+        <div>
+          <div class="kicker" style="margin-bottom:6px">Returning user</div>
+          <div class="step-title">Welcome back</div>
+        </div>
+
+        <div id="passkey-email-display" class="email-display"></div>
+
+        <button class="btn btn-passkey" id="passkey-login-btn" onclick="loginWithPasskey()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            <rect x="3" y="11" width="18" height="11" rx="2.5"/>
+            <circle cx="12" cy="16.5" r="1.5"/>
+          </svg>
+          Sign in with passkey
+        </button>
+
+        <div id="passcode-block" class="passcode-block" style="display:none">
+          <div class="sep">or</div>
+          <div class="field">
+            <div class="fl">Passcode</div>
+            <div class="input">
+              <input type="password" id="passcode-input" placeholder="4–8 digit PIN"
+                inputmode="numeric" maxlength="8"
+                onkeydown="if(event.key==='Enter') loginWithPasscode()" />
+            </div>
+          </div>
+          <button class="btn btn-full" onclick="loginWithPasscode()">Sign in with passcode</button>
+        </div>
+
+        <div class="sep">or</div>
+        <button class="btn ghost btn-full" onclick="showStep('email')">Use a different account</button>
+
+        <div id="passkey-msg"></div>
+      </div>
+
+      <!-- ── Step: register passkey ───────────────────────────── -->
+      <div class="step" id="step-register">
+        <div>
+          <div class="kicker" style="margin-bottom:6px">First time</div>
+          <div class="step-title">Create your passkey</div>
+          <div class="step-sub" style="margin-top:6px">
+            Your device will prompt for biometrics or PIN — no password needed.
+          </div>
+        </div>
+
+        <button class="btn btn-passkey" id="register-btn" onclick="registerPasskey()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="12" cy="8" r="3.5"/>
+            <path d="M5 20c0-4 3-7 7-7s7 3 7 7"/>
+            <path d="M16 3l1.5 1.5L20 2"/>
+          </svg>
+          Create passkey
+        </button>
+
+        <p class="hint">Passkey is stored on your device and syncs via iCloud or Google Password Manager.</p>
+
+        <div id="register-msg"></div>
+      </div>
+
     </div>
   </div>
 
   <script>
-    // ── State ──────────────────────────────────────────────────────────────────
-    const params = new URLSearchParams(location.search);
-    const urlStep = params.get('step');
-    const urlError = params.get('error');
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    let _currentEmail = '';
 
-    function showStep(name) {
+    function showStep(id) {
       document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
-      document.getElementById('step-' + name)?.classList.add('active');
+      document.getElementById('step-' + id)?.classList.add('active');
     }
 
-    function showMsg(id, html, type = 'error') {
+    function setMsg(id, html, type = 'err') {
       const el = document.getElementById(id);
-      if (!el) return;
-      el.innerHTML = `<div class="${type === 'error' ? 'error-msg' : 'info-msg'}">${html}</div>`;
-    }
-
-    function clearMsg(id) {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '';
+      if (el) el.innerHTML = html ? `<div class="notice ${type}">${html}</div>` : '';
     }
 
     // ── Init ───────────────────────────────────────────────────────────────────
     (async () => {
-      // If already logged in, redirect home
       try {
         const s = await fetch('/auth/session').then(r => r.json());
         if (s.authenticated) { location.href = '/'; return; }
       } catch {}
 
+      const params = new URLSearchParams(location.search);
+      const urlError = params.get('error');
+
       if (urlError) {
-        const msgs = { invalid: 'Magic link is invalid or already used.', expired: 'Magic link has expired. Please request a new one.' };
-        showMsg('email-msg', msgs[urlError] || 'Something went wrong.');
+        const msgs = {
+          invalid: 'Magic link is invalid or already used.',
+          expired: 'Magic link has expired. Request a new one.',
+        };
+        setMsg('email-msg', msgs[urlError] || 'Something went wrong.', 'err');
       }
 
-      if (urlStep === 'register') {
+      if (params.get('step') === 'register') {
         showStep('register');
-        return;
       }
-
-      // Default: show login step if on a device with existing session state, else email
-      showStep('email');
     })();
 
-    // ── Magic link ─────────────────────────────────────────────────────────────
-    async function requestMagicLink() {
+    // ── Email → route ──────────────────────────────────────────────────────────
+    async function continueWithEmail() {
       const email = document.getElementById('email-input').value.trim();
-      if (!email) { showMsg('email-msg', 'Please enter your email address.'); return; }
+      if (!email) { setMsg('email-msg', 'Please enter your email address.'); return; }
 
-      const btn = document.getElementById('magic-link-btn');
+      const btn = document.getElementById('continue-btn');
       btn.disabled = true;
-      btn.textContent = 'Sending…';
-      clearMsg('email-msg');
+      btn.textContent = 'Checking…';
+      setMsg('email-msg', '');
 
       try {
+        const info = await fetch(`/auth/user-info?email=${encodeURIComponent(email)}`).then(r => r.json());
+        _currentEmail = email;
+
+        if (info.has_passkey) {
+          // Returning user — go straight to passkey login
+          document.getElementById('passkey-email-display').textContent = email;
+          if (info.has_passcode) {
+            document.getElementById('passcode-block').style.display = 'flex';
+          }
+          showStep('passkey');
+          return;
+        }
+
+        // New user or no passkey — send magic link
+        btn.textContent = 'Sending link…';
         const body = await fetch('/auth/magic-link/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -389,61 +363,47 @@
         }).then(r => r.json());
 
         if (body.dev_link) {
-          showMsg('email-msg', `
-            <span class="dev-label">Dev mode</span>
-            SMTP not configured — use this link:<br>
-            <a href="${escHtml(body.dev_link)}">${escHtml(body.dev_link)}</a>
-          `, 'info');
+          setMsg('email-msg', `
+            <span class="notice-label">Dev mode — no SMTP configured</span>
+            <a href="${esc(body.dev_link)}">${esc(body.dev_link)}</a>`, 'warn');
         } else {
-          showMsg('email-msg', 'Magic link sent — check your inbox.', 'info');
+          setMsg('email-msg', 'Magic link sent — check your inbox.', 'ok');
         }
       } catch {
-        showMsg('email-msg', 'Failed to send magic link. Is the server running?');
+        setMsg('email-msg', 'Something went wrong. Is the server running?');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Send magic link';
+        btn.textContent = 'Continue';
       }
     }
 
-    // ── Passkey register ───────────────────────────────────────────────────────
+    // ── Register passkey ───────────────────────────────────────────────────────
     async function registerPasskey() {
       const btn = document.getElementById('register-btn');
       btn.disabled = true;
-      clearMsg('register-msg');
+      setMsg('register-msg', '');
 
       try {
-        const opts = await fetch('/auth/webauthn/register/start', { method: 'POST' }).then(r => {
-          if (!r.ok) throw new Error('Could not start registration');
-          return r.json();
-        });
+        const opts = await fetch('/auth/webauthn/register/start', { method: 'POST' })
+          .then(r => { if (!r.ok) throw new Error('Could not start registration'); return r.json(); });
 
-        // Decode challenge and user.id
-        opts.challenge = base64urlToBuffer(opts.challenge);
-        opts.user.id = base64urlToBuffer(opts.user.id);
+        opts.challenge = b64ToBuffer(opts.challenge);
+        opts.user.id  = b64ToBuffer(opts.user.id);
         if (opts.excludeCredentials) {
-          opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
+          opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64ToBuffer(c.id) }));
         }
 
         const cred = await navigator.credentials.create({ publicKey: opts });
-        const response = credentialToJSON(cred);
-
         const result = await fetch('/auth/webauthn/register/finish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(response),
+          body: JSON.stringify(credToJSON(cred)),
         }).then(r => r.json());
 
-        if (result.ok) {
-          location.href = '/';
-        } else {
-          showMsg('register-msg', result.error || 'Registration failed.');
-        }
+        if (result.ok) { location.href = '/'; }
+        else { setMsg('register-msg', result.error || 'Registration failed.'); }
       } catch (err) {
-        if (err.name === 'NotAllowedError') {
-          showMsg('register-msg', 'Passkey creation was cancelled.');
-        } else {
-          showMsg('register-msg', err.message || 'Registration failed.');
-        }
+        setMsg('register-msg', err.name === 'NotAllowedError' ? 'Passkey creation was cancelled.' : (err.message || 'Registration failed.'));
       } finally {
         btn.disabled = false;
       }
@@ -451,84 +411,55 @@
 
     // ── Passkey login ──────────────────────────────────────────────────────────
     async function loginWithPasskey() {
-      const email = document.getElementById('login-email-input').value.trim();
-      if (!email) { showMsg('login-msg', 'Please enter your email address.'); return; }
-
-      // Check user info first
-      const info = await fetch(`/auth/user-info?email=${encodeURIComponent(email)}`).then(r => r.json()).catch(() => ({}));
-      if (!info.has_passkey) {
-        // No passkey — try magic link flow
-        document.getElementById('email-input').value = email;
-        showStep('email');
-        showMsg('email-msg', 'No passkey found for this email. Request a magic link to register one.', 'info');
-        return;
-      }
+      const email = _currentEmail;
+      if (!email) { showStep('email'); return; }
 
       const btn = document.getElementById('passkey-login-btn');
       btn.disabled = true;
-      clearMsg('login-msg');
+      setMsg('passkey-msg', '');
 
       try {
         const opts = await fetch('/auth/webauthn/login/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
-        }).then(r => {
-          if (!r.ok) throw new Error('Could not start authentication');
-          return r.json();
-        });
+        }).then(r => { if (!r.ok) throw new Error('Could not start authentication'); return r.json(); });
 
-        opts.challenge = base64urlToBuffer(opts.challenge);
+        opts.challenge = b64ToBuffer(opts.challenge);
         if (opts.allowCredentials) {
-          opts.allowCredentials = opts.allowCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
+          opts.allowCredentials = opts.allowCredentials.map(c => ({ ...c, id: b64ToBuffer(c.id) }));
         }
 
         const cred = await navigator.credentials.get({ publicKey: opts });
-        const response = credentialToJSON(cred);
-
         const result = await fetch('/auth/webauthn/login/finish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, response }),
+          body: JSON.stringify({ email, response: credToJSON(cred) }),
         }).then(r => r.json());
 
         if (result.ok) {
           location.href = '/';
         } else if (result.decision === 'STEP_UP') {
-          showMsg('login-msg', `Additional verification required: ${result.step_up_type?.replace(/_/g, ' ')}`);
+          setMsg('passkey-msg', `Additional verification required: ${(result.step_up_type || '').replace(/_/g, ' ')}`);
+        } else if (result.decision === 'MANUAL_REVIEW') {
+          setMsg('passkey-msg', 'Your sign-in is under review. Please try again shortly or contact support.');
         } else if (result.decision === 'DENY') {
-          showMsg('login-msg', `Access denied by trust engine (rule: ${result.rule_id || 'unknown'})`);
+          setMsg('passkey-msg', result.reason || 'Access denied by trust engine.');
         } else {
-          showMsg('login-msg', result.error || 'Sign-in failed.');
+          setMsg('passkey-msg', result.error || 'Sign-in failed.');
         }
       } catch (err) {
-        if (err.name === 'NotAllowedError') {
-          showMsg('login-msg', 'Passkey sign-in was cancelled.');
-        } else {
-          showMsg('login-msg', err.message || 'Sign-in failed.');
-        }
+        setMsg('passkey-msg', err.name === 'NotAllowedError' ? 'Sign-in was cancelled.' : (err.message || 'Sign-in failed.'));
       } finally {
         btn.disabled = false;
       }
     }
 
-    // Reveal passcode section
-    async function checkAndRevealPasscode() {
-      const email = document.getElementById('login-email-input').value.trim();
-      if (!email) return;
-      const info = await fetch(`/auth/user-info?email=${encodeURIComponent(email)}`).then(r => r.json()).catch(() => ({}));
-      const section = document.getElementById('passcode-section');
-      if (info.has_passcode) section.classList.add('visible');
-      else section.classList.remove('visible');
-    }
-
-    document.getElementById('login-email-input')?.addEventListener('blur', checkAndRevealPasscode);
-
     // ── Passcode login ─────────────────────────────────────────────────────────
     async function loginWithPasscode() {
-      const email = document.getElementById('login-email-input').value.trim();
+      const email = _currentEmail;
       const passcode = document.getElementById('passcode-input').value;
-      if (!email || !passcode) { showMsg('login-msg', 'Enter email and passcode.'); return; }
+      if (!email || !passcode) { setMsg('passkey-msg', 'Enter your passcode.'); return; }
 
       try {
         const result = await fetch('/auth/passcode/login', {
@@ -537,20 +468,19 @@
           body: JSON.stringify({ email, passcode }),
         }).then(r => r.json());
 
-        if (result.ok) {
-          location.href = '/';
-        } else if (result.decision === 'STEP_UP') {
-          showMsg('login-msg', `Step-up required: ${result.step_up_type?.replace(/_/g, ' ')}`);
+        if (result.ok) { location.href = '/'; }
+        else if (result.decision === 'STEP_UP') {
+          setMsg('passkey-msg', `Step-up required: ${(result.step_up_type || '').replace(/_/g, ' ')}`);
         } else {
-          showMsg('login-msg', result.error || 'Sign-in failed.');
+          setMsg('passkey-msg', result.error || 'Sign-in failed.');
         }
       } catch {
-        showMsg('login-msg', 'Sign-in failed.');
+        setMsg('passkey-msg', 'Sign-in failed.');
       }
     }
 
     // ── WebAuthn helpers ───────────────────────────────────────────────────────
-    function base64urlToBuffer(str) {
+    function b64ToBuffer(str) {
       const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
       const bin = atob(b64);
       const buf = new Uint8Array(bin.length);
@@ -558,38 +488,30 @@
       return buf.buffer;
     }
 
-    function bufferToBase64url(buf) {
+    function bufTo64(buf) {
       const bytes = new Uint8Array(buf);
       let str = '';
       for (const b of bytes) str += String.fromCharCode(b);
       return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     }
 
-    function credentialToJSON(cred) {
+    function credToJSON(cred) {
       return {
         id: cred.id,
-        rawId: bufferToBase64url(cred.rawId),
+        rawId: bufTo64(cred.rawId),
         type: cred.type,
         response: {
-          clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
-          attestationObject: cred.response.attestationObject
-            ? bufferToBase64url(cred.response.attestationObject)
-            : undefined,
-          authenticatorData: cred.response.authenticatorData
-            ? bufferToBase64url(cred.response.authenticatorData)
-            : undefined,
-          signature: cred.response.signature
-            ? bufferToBase64url(cred.response.signature)
-            : undefined,
-          userHandle: cred.response.userHandle
-            ? bufferToBase64url(cred.response.userHandle)
-            : undefined,
-          transports: cred.response.getTransports?.() || [],
+          clientDataJSON:    bufTo64(cred.response.clientDataJSON),
+          attestationObject: cred.response.attestationObject ? bufTo64(cred.response.attestationObject) : undefined,
+          authenticatorData: cred.response.authenticatorData ? bufTo64(cred.response.authenticatorData) : undefined,
+          signature:         cred.response.signature         ? bufTo64(cred.response.signature)         : undefined,
+          userHandle:        cred.response.userHandle        ? bufTo64(cred.response.userHandle)        : undefined,
+          transports:        cred.response.getTransports?.() || [],
         },
       };
     }
 
-    function escHtml(str) {
+    function esc(str) {
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
   </script>
