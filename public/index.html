@@ -354,6 +354,7 @@
             <a class="atlas-nav-link" onclick="showArticle('passkeys')">Passkeys &amp; auth</a>
             <a class="atlas-nav-link" onclick="showArticle('synthetic-traffic')">Synthetic traffic</a>
             <a class="atlas-nav-link" onclick="showArticle('architecture')">Architecture</a>
+            <a class="atlas-nav-link" onclick="showArticle('integration-reference')">Integration reference</a>
           </nav>
 
           <!-- ── Main content ───────────────────────────────────── -->
@@ -1118,6 +1119,103 @@ When Redis is unavailable, velocity rules are skipped — the rest of the pipeli
               <div class="atlas-where">
                 <span class="atlas-where-chip" onclick="showTab('control')"><span class="d2" style="background:var(--ink-soft)"></span>Control — system health</span>
                 <span class="atlas-where-chip" onclick="showTab('monitor')"><span class="d2" style="background:var(--allow)"></span>Monitor — status bar</span>
+              </div>
+            </article>
+
+            <article class="atlas-article" id="atlas-article-integration-reference">
+              <div class="atlas-section-kicker">System</div>
+              <h1 class="atlas-title">Integration reference architecture</h1>
+              <p class="atlas-lead">The engine earns its value only if it fires across the whole bank — not once at login. This document describes how to embed the platform into a real banking estate: the integration patterns, what is decisioned versus what is enforced, the admin model, and the three-step runtime flow that turns a STEP_UP into a completed action.</p>
+
+              <h2 id="ir-why" class="atlas-h2">The shift: perimeter → continuous authorization</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">Today the engine evaluates a request and returns one of four decisions. The shift being made is from <strong>perimeter authentication</strong> (decide once, at the front door) to <strong>continuous authorization</strong> (decide per action). The named pattern for this is the PEP/PDP split — separating the Policy Enforcement Point from the Policy Decision Point.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:baseline"><span class="minichip">PDP</span><span class="soft">Policy Decision Point — what we already built: the decision engine, plus enrichment as the PIP (Policy Information Point) and the Policy Lab as the PAP (Policy Administration Point).</span></div>
+                <div style="display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:baseline"><span class="minichip">PEP</span><span class="soft">Policy Enforcement Point — the new piece. A thin hook placed in front of customer actions that calls the PDP and enforces the result.</span></div>
+              </div>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 20px">The integration problem is entirely about the PEP: how to place a consistent enforcement hook in front of every action across a heterogeneous estate, cheaply, without forcing every team to re-plumb their service. The product being sold internally is <em>one decision contract plus one step-up protocol, served by many enforcement adapters</em> — the same shape that made OPA adoptable for authorization.</p>
+
+              <h2 id="ir-patterns" class="atlas-h2">The four integration patterns</h2>
+              <table class="atlas-tbl" style="margin-bottom:20px">
+                <thead><tr><th>Pattern</th><th>Where the PEP lives</th><th>Business context</th><th>Coverage</th><th>Friction to adopt</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>API gateway filter</strong></td><td>Edge (Apigee, Kong, DataPower)</td><td>Weak — sees HTTP only</td><td>Blanket, single hook</td><td>Lowest</td></tr>
+                  <tr><td><strong>BFF middleware</strong></td><td>The channel's own backend</td><td>Strong — knows the action</td><td>Per channel</td><td>Low</td></tr>
+                  <tr><td><strong>Service SDK</strong></td><td>Embedded in each service</td><td>Strongest</td><td>Per service</td><td>Medium (code change)</td></tr>
+                  <tr><td><strong>Mesh sidecar</strong></td><td>Service mesh (Envoy ext_authz)</td><td>Medium (header-passed)</td><td>Cloud-native services</td><td>Low where a mesh exists</td></tr>
+                </tbody>
+              </table>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 8px"><strong>Recommendation: a contract-first hybrid, not a single pattern.</strong> Ship a small SDK that speaks a stable <span class="mono">decide()</span> contract, plus a BFF middleware and a gateway filter built on that same contract. The gateway gives blanket coverage from day one. The BFF and SDK supply the business context where it matters.</p>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 20px">Lead with the <strong>BFF middleware</strong>. Every channel already has a backend that decides "do you want to log in?" — that backend is the natural choke point. It holds the action semantics and the session, so placing the PEP there needs no client rewrite and loses no context. The riskiest assumption is not the engine — it is whether channel teams will pass good context to the decision point.</p>
+
+              <h2 id="ir-ubiquitous" class="atlas-h2">Decision everywhere, enforcement selectively</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">A core design rule: call the engine on <em>every</em> action; introduce friction only when policy says so. Decoupling "decide" from "enforce" is the move that makes ubiquitous decisioning affordable.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:baseline"><span class="minichip">Call everything</span><span class="soft">Including read-only balance checks — the ambient trust score and behavioural signal only work if the engine observes the full action stream.</span></div>
+                <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:baseline"><span class="minichip">Cheap calls</span><span class="soft">Most calls return ALLOW in single-digit milliseconds from cache. Friction is the expensive part, and friction fires only when policy and risk score demand it.</span></div>
+                <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:baseline"><span class="minichip">One code path</span><span class="soft">Consistency — closes the "did someone remember to gate this endpoint?" gap across every channel.</span></div>
+              </div>
+
+              <h2 id="ir-registry" class="atlas-h2">The admin model: Action Registry</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">The admin surface is an <strong>Action Registry</strong>. Every action a channel can perform is registered once with its tier, required Auth Assurance Level, and risk ceiling. Channels reference an <strong>action key</strong>, not a hardcoded rule — stopping the same logical action ("make a payment") from drifting in meaning across app, web, phone, and branch.</p>
+              <table class="atlas-tbl" style="margin-bottom:12px">
+                <thead><tr><th>Registry field</th><th>Example</th><th>Drives</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="mono">action_key</span></td><td>payment.new_payee</td><td>Canonical identity across channels</td></tr>
+                  <tr><td><span class="mono">tier</span></td><td>4</td><td>Sensitivity band</td></tr>
+                  <tr><td><span class="mono">required_al</span></td><td>AL3 (selfie)</td><td>The bar a step-up must clear</td></tr>
+                  <tr><td><span class="mono">risk_ceiling</span></td><td>40</td><td>Composite-risk threshold that forces review/deny</td></tr>
+                  <tr><td><span class="mono">step_up_grain</span></td><td>transaction</td><td>Whether a step-up is remembered per session or per action</td></tr>
+                </tbody>
+              </table>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 20px">Unregistered actions fall back to a safe default: treat as Tier 3, fail-closed for money movement and fail-open for reads. That default posture is itself a policy choice, set per channel.</p>
+
+              <h2 id="ir-runtime" class="atlas-h2">The runtime flow: tell, decide, step-up and retry</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 16px">Three steps move a customer from intent to a completed action.</p>
+
+              <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
+                <div style="display:grid;grid-template-columns:80px 1fr;gap:14px;align-items:start">
+                  <div style="text-align:center;padding:8px 0;background:color-mix(in oklch,var(--accent) 10%,transparent);border-radius:var(--radius-sm);border:1px solid color-mix(in oklch,var(--accent) 25%,var(--line))"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">1 — Tell</span></div>
+                  <div style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;padding-top:6px">The PEP intercepts the action and calls <span class="mono">POST /trust/decision</span> with <span class="mono">{ customer_id, action, device_id, current_auth_level, context }</span>. It is asserting intent: the customer wants to do X, and here is what we know about them.</div>
+                </div>
+                <div style="display:grid;grid-template-columns:80px 1fr;gap:14px;align-items:start">
+                  <div style="text-align:center;padding:8px 0;background:color-mix(in oklch,var(--accent) 10%,transparent);border-radius:var(--radius-sm);border:1px solid color-mix(in oklch,var(--accent) 25%,var(--line))"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">2 — Decide</span></div>
+                  <div style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;padding-top:6px">The engine runs its pipeline and returns ALLOW, STEP_UP, DENY, or MANUAL_REVIEW. On STEP_UP, return a <strong>challenge</strong> — not just a flag — with the required <span class="mono">acr</span>, a <span class="mono">max_age</span>, and a challenge or transaction id. <strong>RFC 9470</strong> (OAuth 2.0 Step-Up Authentication Challenge Protocol) is the standard to adopt here — <span class="mono">WWW-Authenticate: insufficient_user_authentication</span> with required <span class="mono">acr_values</span> — so the step-up plugs into any OIDC/OAuth estate.</div>
+                </div>
+                <div style="display:grid;grid-template-columns:80px 1fr;gap:14px;align-items:start">
+                  <div style="text-align:center;padding:8px 0;background:color-mix(in oklch,var(--accent) 10%,transparent);border-radius:var(--radius-sm);border:1px solid color-mix(in oklch,var(--accent) 25%,var(--line))"><span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">3 — Retry</span></div>
+                  <div style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;padding-top:6px">The client runs the named authenticator — the AL ladder of passcode, passkey, selfie, IDV — and the auth service mints a fresh token carrying the satisfied <span class="mono">acr</span>/<span class="mono">amr</span>. The client <strong>replays the original action</strong> with the elevated token. The engine re-decides; <span class="mono">alMeetsRequired</span> is now true and it returns ALLOW.</div>
+                </div>
+              </div>
+
+              <h2 id="ir-grain" class="atlas-h2">Step-up grain: session vs. transaction</h2>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;font-size:13.5px">
+                <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:baseline"><span class="minichip">Session-grained</span><span class="soft">Uplift the session AL — step up once, then proceed at that tier for the session. Better UX, looser security. Right for Tiers 1–2 (viewing).</span></div>
+                <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:baseline"><span class="minichip">Transaction-grained</span><span class="soft">Bind the step-up to one action instance via a short-lived receipt in Redis, keyed by transaction id with a TTL. Higher assurance, more friction. Right for Tier 4 (new-payee payments).</span></div>
+              </div>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 20px">Make grain a <strong>per-tier policy knob</strong>, not a constant. Both paths fit the existing Redis and policy model with no new infrastructure.</p>
+
+              <h2 id="ir-skeptic" class="atlas-h2">What a smart skeptic will challenge</h2>
+              <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
+                <div style="border-left:2px solid var(--line);padding:10px 14px">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px">Latency — we just put a synchronous hop in front of everything</div>
+                  <div style="font-size:13px;color:var(--ink-soft);line-height:1.65">The slow part is enrichment, not scoring. Use tiered evaluation: low-tier actions take a fast path with cached fraud and device scores and no live enrichment, returning under 10ms; full enrichment runs only on cache miss or for elevated tiers. Breach and IP-reputation services are never called on a balance check.</div>
+                </div>
+                <div style="border-left:2px solid var(--deny);padding:10px 14px">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px">Availability — the engine is now in the critical path of the whole bank</div>
+                  <div style="font-size:13px;color:var(--ink-soft);line-height:1.65">This is the serious objection. Design the fail posture per tier: reads fail-open, money movement fails-closed. Add a local PEP fallback (cached last-known decision plus a conservative default) so an unreachable engine degrades rather than blocks, circuit breakers in every adapter, and a genuinely highly-available, multi-region PDP. An architecture review board will ask this first.</div>
+                </div>
+                <div style="border-left:2px solid var(--line);padding:10px 14px">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px">Idempotency on retry</div>
+                  <div style="font-size:13px;color:var(--ink-soft);line-height:1.65">Re-deciding after a step-up must not re-run side effects — but that is the business service's responsibility via its own idempotency key, not the trust layer's. The trust call is a gate before the action; the action owns its own idempotency. Also handle DENY-after-step-up: a step-up that succeeds while a hard gate (Tor, velocity burst) still denies the retry must render cleanly on the client.</div>
+                </div>
+              </div>
+
+              <h2 id="ir-next" class="atlas-h2">Recommended next build</h2>
+              <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0 0 12px">The <strong>Action Registry</strong> is the next piece to build. It is the component that turns the platform from an engine into a platform — the single source of truth that every PEP reads from and that the admin console governs. Everything else (the adapters, the RFC 9470 step-up, the fail-posture policy) hangs off it.</p>
+              <div class="atlas-product-box" style="margin-top:0">
+                <div class="apk">One-liner for steering</div>
+                Trust decisions as a shared bank service — like OPA for authorization, but for transaction risk and adaptive step-up. Easy to integrate (one SDK line for the common case, standards-based step-up), easy to sell internally (additive and incremental — start with Tier 4 in one channel, prove the loop, then expand action by action).
               </div>
             </article>
 
