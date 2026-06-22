@@ -253,7 +253,7 @@
       <div class="surface active" id="surface-home">
         <div class="phead">
           <div>
-            <div class="pt">Good afternoon, Priya</div>
+            <div class="pt" id="home-greeting">Good afternoon</div>
             <div class="pd">Policy <span class="mono">v<span id="home-policy-ver">37</span></span> is live and healthy. The platform has made <span class="mono" id="home-total-label">1.84M</span> decisions today. <span class="mono" id="home-cases-label">2</span> need a human. Below is the system at a glance. Open <strong>Atlas</strong> for how it decides.</div>
           </div>
           <button class="btn primary" onclick="showTab('simulator')">Open Simulator</button>
@@ -3147,6 +3147,13 @@ function renderUserChip(s){
   if (al)   al.textContent   = s.achieved_al;
   if (av)   av.textContent   = (s.customer_id || s.email || '?')[0].toUpperCase();
   if (chip) chip.style.display = 'flex';
+  const greeting = document.getElementById('home-greeting');
+  if (greeting && s.email) {
+    const firstName = s.email.split('@')[0];
+    const h = new Date().getHours();
+    const tod = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+    greeting.textContent = `Good ${tod}, ${firstName}`;
+  }
 }
 
 function lockAL2Tabs(){
